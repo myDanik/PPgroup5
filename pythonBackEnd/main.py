@@ -1,46 +1,62 @@
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
-from sqlalchemy import *
-import psycopg2
-from sqlalchemy.orm import sessionmaker, relationship, declarative_base
-from schemas import User_Data
-from SQL import Base, User, Route, Coordinate, Estimation, engine
-import uuid
-import random
-import string
+from fastapi import FastAPI, HTTPException, Depends
+from PPgroup5.pythonBackEnd.auth.database import User
+from PPgroup5.pythonBackEnd.auth.models import UserDB
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
-
+engine = create_engine(f'postgresql://postgres:postgres@localhost:5432/postgres')
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+Session = sessionmaker(engine)
 
 app = FastAPI(title='Veloapp')
 
 
-Session = sessionmaker(engine)
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+@app.post("/users/")
+def create_user(user_data: UserDB, db: Session = Depends(get_db)):
+    new_user = User(
+        name=user_data.name,
+        login=user_data.login,
+        password=user_data.password,
+        token=user_data.token)
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+    return {"message: "f"Success, {new_user.name}, welcome!", new_user}
+
 
 @app.get("/users/{user_id}")
-def get_user(user_id: int, route_id: int=None):
-    session = Session()
-    user = session.query(User).filter(User.UserID == user_id).first()
-    routes = session.query(Coordinate).filter(Route.UserID == user_id and Coordinate.UserID == user_id).all()
-    route_by_id = session.query(Coordinate).filter(Route.UserID == user_id and Coordinate.RouteID == route_id).first()
-    session.close()
-    if route_id == None:
-        return user, routes
-    else:
-        return user, route_by_id
+def get_user_by_id(user_id: int, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {"name": user.name, "id": user.id, "login": user.login, "token": user.token}
 
-@app.post("/sign_up")
-def post_sign_up(List: User_Data):
-    session = Session()
-    name = List.name
-    login = List.login
-    password = List.password
-    token = ''.join(random.choices(string.ascii_lowercase + string.digits, k=10))
-    user_id = str(uuid.uuid4().int)[:8]
-    while session.query(User).filter(User.UserID == user_id).first():
-        user_id = str(uuid.uuid4().int)[:8]
-    while session.query(User).filter(User.Token == token).first():
-        token = ''.join(random.choices(string.ascii_lowercase + string.digits, k=10))
-    new_user = User(UserID=user_id, Name=name, Login=login, Password=password, Token=token)
-    session.add(new_user)
-    session.commit()
 
+@app.put("/users/{user_id}")
+def update_user(user_id: int, user_data: UserDB, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    for attr, value in user_data.dict(exclude_unset=True).items():
+        setattr(user, attr, value)
+    db.commit()
+    db.refresh(user)
+    return {"message: "f"Success, {user.name} was updated"}
+
+
+@app.delete("/users/{user_id}")
+def delete_user(user_id: int, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    db.delete(user)
+    db.commit()
+    return {"message: "f"Success, {user.name} with user id {user_id} was deleted"}
