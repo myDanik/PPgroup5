@@ -5,7 +5,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from PPgroup5.pythonBackEnd.auth.database import User
 
-engine = create_engine(f'postgresql://postgres:postgres@localhost:5432/postgres')  # Замените на путь к вашей базе данных
+engine = create_engine(f'postgresql://postgres:postgres@localhost:5432/postgres')
 Session = sessionmaker(bind=engine)
 session = Session()
 
