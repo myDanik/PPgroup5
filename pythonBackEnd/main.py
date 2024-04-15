@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException, Depends
 from PPgroup5.pythonBackEnd.auth.database import User
+from PPgroup5.pythonBackEnd.auth.jwt import generate_token
 from PPgroup5.pythonBackEnd.auth.models import UserDB
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -21,11 +22,13 @@ def get_db():
 
 @app.post("/users/")
 def create_user(user_data: UserDB, db: Session = Depends(get_db)):
+    token = generate_token()
     new_user = User(
         name=user_data.name,
         login=user_data.login,
         password=user_data.password,
-        token=user_data.token)
+        token=token
+    )
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
@@ -49,7 +52,7 @@ def update_user(user_id: int, user_data: UserDB, db: Session = Depends(get_db)):
         setattr(user, attr, value)
     db.commit()
     db.refresh(user)
-    return {"message: "f"Success, {user.name} was updated"}
+    return {"message: "f"Success, user {user.name} was updated"}
 
 
 @app.delete("/users/{user_id}")
@@ -58,5 +61,6 @@ def delete_user(user_id: int, db: Session = Depends(get_db)):
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     db.delete(user)
+    db.refresh(user)
     db.commit()
     return {"message: "f"Success, {user.name} with user id {user_id} was deleted"}

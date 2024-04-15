@@ -1,3 +1,25 @@
+import secrets
+import string
+
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from PPgroup5.pythonBackEnd.auth.database import User
+
+engine = create_engine(f'postgresql://postgres:postgres@localhost:5432/postgres')  # Замените на путь к вашей базе данных
+Session = sessionmaker(bind=engine)
+session = Session()
+
+
+def generate_token(length=10):
+    alphabet = string.ascii_letters + string.digits
+    token = ''.join(secrets.choice(alphabet) for _ in range(length))
+    user = session.query(User).filter_by(token=token).first()
+    if user is None:
+        return token
+    return generate_token()
+
+
+
 # import hashlib
 # import jwt
 # from datetime import datetime, timedelta
