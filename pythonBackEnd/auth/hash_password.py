@@ -3,7 +3,7 @@ import string
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from auth.database import User,engine
+from database import User, engine
 
 
 Session = sessionmaker(bind=engine)

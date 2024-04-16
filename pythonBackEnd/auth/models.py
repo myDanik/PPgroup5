@@ -8,10 +8,11 @@ class RouteDB(BaseModel):
     longitude: float
     user_id: int
 
+
 class UserDB(BaseModel):
     name: str = Field(min_length=3, max_length=128)
-    login: str = Field(min_length=6, max_length=1024)
-    password: str = Field(min_length=6, max_length=1024)
-    token: str
+    login: str = Field(min_length=6, max_length=256)
+    password: str = Field(min_length=6, max_length=256)
+
 
 

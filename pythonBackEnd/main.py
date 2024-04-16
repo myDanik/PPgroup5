@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException, Depends
 from auth.database import User
-from auth.jwt import generate_token
+from auth.hash_password import generate_token
 from auth.models import UserDB
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
