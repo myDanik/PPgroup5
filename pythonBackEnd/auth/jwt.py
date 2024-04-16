@@ -3,9 +3,9 @@ import string
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from PPgroup5.pythonBackEnd.auth.database import User
+from auth.database import User,engine
 
-engine = create_engine(f'postgresql://postgres:postgres@localhost:5432/postgres')
+
 Session = sessionmaker(bind=engine)
 session = Session()
 

@@ -1,7 +1,7 @@
 from sqlalchemy import create_engine, Column, Integer, String, Float, ForeignKey, MetaData
 from sqlalchemy.orm import declarative_base, relationship
 import psycopg2
-
+from pg import url
 Base = declarative_base()
 
 
@@ -32,7 +32,8 @@ class Coordinate(Base):
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
     latitude = Column(Float, nullable=False)
     longitude = Column(Float, nullable=False)
-    cord_id = Column(Integer, primary_key=True, nullable=False)
+    cord_id = Column(Integer, nullable=False)
+    operation_id = Column(Integer, nullable=False, primary_key=True)
     route = relationship("Route", back_populates="coordinates")
 
 
@@ -45,5 +46,6 @@ class Estimation(Base):
     route = relationship("Route", back_populates="estimations")
 
 
-engine = create_engine('postgresql://postgres:postgres@localhost:5432/postgres')
+engine = create_engine(url)
+
 Base.metadata.create_all(engine)

@@ -1,11 +1,11 @@
 from fastapi import FastAPI, HTTPException, Depends
-from PPgroup5.pythonBackEnd.auth.database import User
-from PPgroup5.pythonBackEnd.auth.jwt import generate_token
-from PPgroup5.pythonBackEnd.auth.models import UserDB
+from auth.database import User
+from auth.jwt import generate_token
+from auth.models import UserDB
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-
-engine = create_engine(f'postgresql://postgres:postgres@localhost:5432/postgres')
+from auth.database import Base, User, Route, Coordinate, Estimation, engine
+from auth.schemas import Route_Data
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Session = sessionmaker(engine)
 
@@ -64,3 +64,39 @@ def delete_user(user_id: int, db: Session = Depends(get_db)):
     db.refresh(user)
     db.commit()
     return {"message: "f"Success, {user.name} with user id {user_id} was deleted"}
+
+@app.get("/users_info/{user_id}")
+def get_user(user_id: int, route_id: int=None):
+    session = Session()
+    user = session.query(User).filter(User.id == user_id).first()
+    routes = session.query(Coordinate).filter(Route.user_id == user_id and Coordinate.user_id == user_id).all()
+    route_by_id = session.query(Coordinate).filter(Route.user_id == user_id and Coordinate.route_id == route_id).first()
+    session.close()
+    if route_id == None:
+        return user, routes
+    else:
+        return user, route_by_id
+
+@app.get("/route_info/{route_id}")
+def get_route(route_id: int):
+    session = Session()
+    route = session.query(Route).filter(Route.route_id == route_id).first()
+    coordinates = session.query(Coordinate.latitude, Coordinate.longitude).filter(Coordinate.route_id==route_id).all()
+    session.close()
+    return route, coordinates
+@app.post("/route/")
+def post_route(route_info: Route_Data):
+    session = Session()
+    us_id = 1#session.query(User.id).filter(User.token==route_info.token).first()
+    dist = None
+    new_route = Route(route_id=route_info.route_id, user_id=us_id, estimation=None, distance=dist)
+    session.add(new_route)
+    for cord in range(len(route_info.latitude_longitude_cordid)):
+        new_coordinates = Coordinate(route_id=route_info.route_id, user_id=us_id, latitude=route_info.latitude_longitude_cordid[cord][0],
+                                     longitude=route_info.latitude_longitude_cordid[cord][1],
+                                     cord_id=route_info.latitude_longitude_cordid[cord][2], operation_id=(max(session.query(Coordinate.operation_id).all()) + 1))
+        session.add(new_coordinates)
+@app.get("/free_route_id/")
+def get_free_route_id():
+    session = Session()
+    return (max(session.query(Route.route_id).all()) + 1)
