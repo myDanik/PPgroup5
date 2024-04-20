@@ -1,7 +1,6 @@
-from sqlalchemy import create_engine, Column, Integer, String, Float, ForeignKey, MetaData
+from sqlalchemy import create_engine, Column, Integer, String, Float, ForeignKey
 from sqlalchemy.orm import declarative_base, relationship
-import psycopg2
-from pg import url
+from PPgroup5.pythonBackEnd.auth.pg import url
 Base = declarative_base()
 
 
@@ -9,9 +8,10 @@ class User(Base):
     __tablename__ = 'users'
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String, nullable=False)
-    login = Column(String, nullable=False)
-    password = Column(String, nullable=False)
-    token = Column(String, nullable=False)
+    login = Column(String, nullable=False, unique=True)
+    hashed_password = Column(String, nullable=False)
+    salt_hashed_password = Column(String, nullable=False)
+    token_mobile = Column(String, nullable=False)
     routes = relationship("Route", back_populates="user")
 
 
