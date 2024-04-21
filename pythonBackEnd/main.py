@@ -78,6 +78,7 @@ def update_user(user_id: int, user_data: UserDB, db: Session = Depends(get_db)):
     user_data["hashed_password"]= hashed_password
     user_data["salt_hashed_password"] = generated_salt
 
+
     for attr, value in user_data.items():
         setattr(user, attr, value)
     db.commit()
