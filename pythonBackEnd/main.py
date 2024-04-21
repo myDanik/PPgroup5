@@ -67,18 +67,22 @@ def get_user_by_id(user_id: int, db: Session = Depends(get_db)):
     return {"name": user.name, "id": user.id, "login": user.login, "token_mobile": user.token_mobile}
 
 
-# пока не работает
-# @app.put("/users/{user_id}", )
-# def update_user(user_id: int, user_data: UserDB, db: Session = Depends(get_db)):
-#     user = db.query(User).filter(User.id == user_id).first()
-#     if not user:
-#         raise HTTPException(status_code=404, detail="User not found")
-#     #some checking user
-#     for attr, value in user_data.dict(exclude_unset=True).items():
-#         setattr(user, attr, value)
-#     db.commit()
-#     db.refresh(user)
-#     return {"message: "f"Success, user {user.name} was updated"}
+@app.put("/users/{user_id}", )
+def update_user(user_id: int, user_data: UserDB, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    generated_salt, hashed_password = creating_hash_salt(user_data.password)
+    user_data = user_data.dict()
+    del user_data["password"]
+    user_data["hashed_password"]= hashed_password
+    user_data["salt_hashed_password"] = generated_salt
+
+    for attr, value in user_data.items():
+        setattr(user, attr, value)
+    db.commit()
+    db.refresh(user)
+    return {"message: "f"Success, user {user.name} was updated"}
 
 
 @app.delete("/users/{user_id}")
