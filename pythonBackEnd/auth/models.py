@@ -18,3 +18,14 @@ class UserDB(BaseModel):
 class User_login(BaseModel):
     login: str = Field(max_length=64, nullable=True)
     password: str = Field(max_length=64, nullable=True)
+
+
+class Coordinate_get(BaseModel):
+    latitude: float = Field(nullable=False, ge=-90.0, le=90.0)
+    longitude: float = Field(nullable=False, ge=-180.0, le=180.0)
+
+
+class Estimation_get(BaseModel):
+    route_id: int
+    estim: float = Field(le=10, ge=1)
+

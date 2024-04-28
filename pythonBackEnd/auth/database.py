@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, Integer, String, Float, ForeignKey
+from sqlalchemy import create_engine, Column, Integer, String, Float, ForeignKey, DateTime
 from sqlalchemy.orm import declarative_base, relationship
 from PPgroup5.pythonBackEnd.auth.pg import url
 Base = declarative_base()
@@ -15,6 +15,12 @@ class User(Base):
     routes = relationship("Route", back_populates="user")
 
 
+# class Association_routes_cords(Base):
+#     __tablename__ = 'route_coordinate_association',
+#     route_id = Column(Integer, ForeignKey('routes.route_id'), primary_key=True)
+#     cord_id = Column(Integer, ForeignKey('coordinates.cord_id'), primary_key=True)
+
+
 class Route(Base):
     __tablename__ = 'routes'
     route_id = Column(Integer, primary_key=True, unique=True, nullable=False)
@@ -22,27 +28,29 @@ class Route(Base):
     estimation = Column(Float)
     distance = Column(Float)
     user = relationship("User", back_populates="routes")
-    coordinates = relationship("Coordinate", back_populates="route")
     estimations = relationship("Estimation", back_populates="route")
+    # coordinates = relationship("Coordinate", secondary=Association_routes_cords, back_populates="routes")
 
 
 class Coordinate(Base):
     __tablename__ = 'coordinates'
-    route_id = Column(Integer, ForeignKey('routes.route_id'), nullable=False)
+    # route_id = Column(Integer, ForeignKey('routes.route_id'), nullable=False)
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
     latitude = Column(Float, nullable=False)
     longitude = Column(Float, nullable=False)
-    cord_id = Column(Integer, nullable=False)
-    operation_id = Column(Integer, nullable=False, primary_key=True)
-    route = relationship("Route", back_populates="coordinates")
+    cord_id = Column(Integer, nullable=False, primary_key=True, autoincrement=True)
+    operation_time = Column(DateTime, nullable=False)
+    # routes = relationship("Route", secondary=Association_routes_cords, back_populates="coordinates")
 
 
 class Estimation(Base):
     __tablename__ = 'estimations'
-    estim_id = Column(Integer, primary_key=True, nullable=False)
+    estim_id = Column(Integer, primary_key=True, nullable=False, autoincrement=True)
     route_id = Column(Integer, ForeignKey('routes.route_id'), nullable=False)
     estim = Column(Float, nullable=False)
-    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    user_id = Column(Integer, nullable=False)
+    estimator_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    datetime = Column(DateTime, nullable=False)
     route = relationship("Route", back_populates="estimations")
 
 
