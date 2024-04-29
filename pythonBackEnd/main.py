@@ -149,7 +149,7 @@ def get_free_route_id():
     max_route_id = session.query(func.max(Route.route_id)).scalar()
     return {"free_route_id": max_route_id+1}
 @app.get("/token/{token}")
-def check_token(token: str):
+def check_token(token: Route_Data.token):
     session = Session()
     valid_token = session.query(User.token_mobile).filter(User.token_mobile==token).first()
     if not valid_token:
