@@ -1,6 +1,6 @@
 from sqlalchemy import create_engine, Column, Integer, String, Float, ForeignKey, DateTime
 from sqlalchemy.orm import declarative_base, relationship
-from PPgroup5.pythonBackEnd.auth.pg import url
+from pg import url
 Base = declarative_base()
 
 
@@ -29,18 +29,18 @@ class Route(Base):
     distance = Column(Float)
     user = relationship("User", back_populates="routes")
     estimations = relationship("Estimation", back_populates="route")
-    # coordinates = relationship("Coordinate", secondary=Association_routes_cords, back_populates="routes")
+    coordinates = relationship("Coordinate", back_populates="routes")
 
 
 class Coordinate(Base):
     __tablename__ = 'coordinates'
-    # route_id = Column(Integer, ForeignKey('routes.route_id'), nullable=False)
+    route_id = Column(Integer, ForeignKey('routes.route_id'), nullable=False)
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
     latitude = Column(Float, nullable=False)
     longitude = Column(Float, nullable=False)
     cord_id = Column(Integer, nullable=False, primary_key=True, autoincrement=True)
     operation_time = Column(DateTime, nullable=False)
-    # routes = relationship("Route", secondary=Association_routes_cords, back_populates="coordinates")
+    routes = relationship("Route", back_populates="coordinates")
 
 
 class Estimation(Base):

@@ -5,6 +5,7 @@ from datetime import timedelta
 from fastapi import FastAPI, HTTPException, Depends
 from auth.tokens_hashs import (creating_hash_salt, authenticate_user, create_token, token_user, generate_token)
 from auth.models import UserDB, User_login, Coordinate_get, Estimation_get
+from sqlalchemy import func
 from sqlalchemy.orm import sessionmaker
 from auth.database import User, Route, Coordinate, engine, Estimation
 from auth.schemas import Route_Data
@@ -103,8 +104,10 @@ def delete_user(user_id: int, db: Session = Depends(get_db)):
 def get_user(user_id: int, route_id: int = None):
     session = Session()
     user = session.query(User).filter(User.id == user_id).first()
-    routes = session.query(Coordinate).filter(Route.user_id == user_id and Coordinate.user_id == user_id).all()
-    route_by_id = session.query(Coordinate).filter(Route.user_id == user_id and Coordinate.route_id == route_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    routes = session.query(Coordinate).filter((Coordinate.user_id == user_id)).all()
+    route_by_id = session.query(Coordinate).filter((Coordinate.user_id == user_id),(Coordinate.route_id == route_id)).all()
     session.close()
     if route_id is None:
         return {"routes": routes, "name": user.name, "id": user.id, "login": user.login, "token_mobile": user.token_mobile}
@@ -116,12 +119,13 @@ def get_user(user_id: int, route_id: int = None):
 def get_route(route_id: int):
     session = Session()
     route = session.query(Route).filter(Route.route_id == route_id).first()
-    coordinates = session.query(Coordinate.latitude, Coordinate.longitude, Coordinate.cord_id).filter(Coordinate.route_id == route_id).all()
+    if not route:
+        raise HTTPException(status_code=404, detail="Route not found")
+    coordinates = session.query(Coordinate).filter(Coordinate.route_id == route_id).all()
     geoLoc = Nominatim(user_agent="GetLoc")
-    locname = geoLoc.reverse(str(session.query(Coordinate.latitude).filter(Coordinate.route_id == route_id).first()) + ", " + str(session.query(Coordinate.longitude).filter(Coordinate.route_id == route_id).first()))
+    locname = geoLoc.reverse(str(session.query(Coordinate.latitude).filter(Coordinate.route_id == route_id).first())[1:-2] + ", " + str(session.query(Coordinate.longitude).filter(Coordinate.route_id == route_id).first())[1:-2])
     session.close()
-    return route, coordinates
-
+    return route, coordinates, str(locname)
 
 @app.post("/route/")
 def post_route(route_info: Route_Data):
@@ -137,20 +141,21 @@ def post_route(route_info: Route_Data):
                                      latitude=route_info.latitude_longitude_cordid[cord][0],
                                      longitude=route_info.latitude_longitude_cordid[cord][1],
                                      cord_id=route_info.latitude_longitude_cordid[cord][2],
-                                     operation_id=(max(session.query(Coordinate.operation_id).all()) + 1))
+                                     operation_time=datetime.datetime.now())
         session.add(new_coordinates)
 @app.get("/free_route_id/")
 def get_free_route_id():
     session = Session()
-    return (max(session.query(Route.route_id).all()) + 1)
+    max_route_id = session.query(func.max(Route.route_id)).scalar()
+    return {"free_route_id": max_route_id+1}
 @app.get("/token/{token}")
 def check_token(token: str):
     session = Session()
-    valid_token = session.query(User.token).filter(User.token==token).first()
+    valid_token = session.query(User.token_mobile).filter(User.token_mobile==token).first()
     if not valid_token:
         raise HTTPException(status_code=404, detail="Token not found")
     else:
-        return token
+        return {"token": valid_token[0]}
 
 # coordinates
 @app.get("/coordinates/{user_id}/")
