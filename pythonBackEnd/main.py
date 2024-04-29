@@ -1,11 +1,14 @@
 import datetime
+from geopy.distance import great_circle as GC
+from geopy.geocoders import Nominatim
 from datetime import timedelta
 from fastapi import FastAPI, HTTPException, Depends
-from PPgroup5.pythonBackEnd.auth.tokens_hashs import (creating_hash_salt,                                                      authenticate_user, create_token, token_user, generate_token)
-from PPgroup5.pythonBackEnd.auth.models import UserDB, User_login, Coordinate_get, Estimation_get
+from auth.tokens_hashs import (creating_hash_salt, authenticate_user, create_token, token_user, generate_token)
+from auth.models import UserDB, User_login, Coordinate_get, Estimation_get
 from sqlalchemy.orm import sessionmaker
-from PPgroup5.pythonBackEnd.auth.database import User, Route, Coordinate, engine, Estimation
-from PPgroup5.pythonBackEnd.auth.schemas import Route_Data
+from auth.database import User, Route, Coordinate, engine, Estimation
+from auth.schemas import Route_Data
+
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Session = sessionmaker(engine)
@@ -113,17 +116,20 @@ def get_user(user_id: int, route_id: int = None):
 def get_route(route_id: int):
     session = Session()
     route = session.query(Route).filter(Route.route_id == route_id).first()
-    # coordinates = session.query(Coordinate.latitude, Coordinate.longitude).filter(Coordinate.route_id == route_id).all()
+    coordinates = session.query(Coordinate.latitude, Coordinate.longitude, Coordinate.cord_id).filter(Coordinate.route_id == route_id).all()
+    geoLoc = Nominatim(user_agent="GetLoc")
+    locname = geoLoc.reverse(str(session.query(Coordinate.latitude).filter(Coordinate.route_id == route_id).first()) + ", " + str(session.query(Coordinate.longitude).filter(Coordinate.route_id == route_id).first()))
     session.close()
-    return route
-            #coordinates
+    return route, coordinates
 
 
 @app.post("/route/")
-def post_route(user_id: int, route_info: Route_Data):
+def post_route(route_info: Route_Data):
     session = Session()
-    # session.query(User.id).filter(User.token==route_info.token).first()
-    dist = None
+    user_id = session.query(User.id).filter(User.token==route_info.token).first()
+    dist = 0
+    for i in range(len(route_info.latitude_longitude_cordid)-1):
+        dist += GC((route_info.latitude_longitude_cordid[i][0], route_info.latitude_longitude_cordid[i][1]), (route_info.latitude_longitude_cordid[i+1][0], route_info.latitude_longitude_cordid[i+1][1])).km
     new_route = Route(route_id=route_info.route_id, user_id=user_id, estimation=None, distance=dist)
     session.add(new_route)
     for cord in range(len(route_info.latitude_longitude_cordid)):
@@ -133,20 +139,24 @@ def post_route(user_id: int, route_info: Route_Data):
                                      cord_id=route_info.latitude_longitude_cordid[cord][2],
                                      operation_id=(max(session.query(Coordinate.operation_id).all()) + 1))
         session.add(new_coordinates)
-
-
 @app.get("/free_route_id/")
 def get_free_route_id():
     session = Session()
     return (max(session.query(Route.route_id).all()) + 1)
+@app.get("/token/{token}")
+def check_token(token: str):
+    session = Session()
+    valid_token = session.query(User.token).filter(User.token==token).first()
+    if not valid_token:
+        raise HTTPException(status_code=404, detail="Token not found")
+    else:
+        return token
 
 # coordinates
 @app.get("/coordinates/{user_id}/")
 def get_coordinates_by_id(user_id: int, db: Session = Depends(get_db)):
     coordinates = db.query(Coordinate).filter(Coordinate.user_id == user_id).all()
     return coordinates
-
-
 @app.post("/coordinates/{user_id}")
 def create_coordinate_point(user_id: int, coordinate_data: Coordinate_get, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.id == user_id).first()
@@ -163,8 +173,6 @@ def create_coordinate_point(user_id: int, coordinate_data: Coordinate_get, db: S
     db.commit()
     db.refresh(new_coordinate)
     return new_coordinate
-
-
 @app.put("/coordinates/{user_id}", )
 def update_coordinate(user_id: int, cord_id: int, coordinate_data: Coordinate_get, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.id == user_id).first()
@@ -185,7 +193,6 @@ def update_coordinate(user_id: int, cord_id: int, coordinate_data: Coordinate_ge
         "cord_id": cord_id,
         "message": f"Success, coordinate was updated"
     }
-
 
 #estimations
 @app.post("/routes/estimations/{user_id}")
