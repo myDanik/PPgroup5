@@ -287,3 +287,4 @@ def delete_estimation(estimator_id: int, route_id: int, db: Session = Depends(ge
         db.commit()
         return {"message": f"Success", "deleted estimation": estimation}
     raise HTTPException(status_code=404, detail="Estimations with your id not found")
+
