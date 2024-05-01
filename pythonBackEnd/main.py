@@ -3,17 +3,18 @@ from geopy.distance import great_circle as GC
 from geopy.geocoders import Nominatim
 from datetime import timedelta
 from fastapi import FastAPI, HTTPException, Depends
-from auth.tokens_hashs import (creating_hash_salt, authenticate_user, create_token, token_user, generate_token)
-from auth.models import UserDB, User_login, Coordinate_get, Estimation_get
+from PPgroup5.pythonBackEnd.auth.tokens_hashs import (creating_hash_salt, authenticate_user, create_token, token_user,
+                                                      generate_token)
+from PPgroup5.pythonBackEnd.auth.models import UserDB, User_login, Coordinate_get, Estimation_get
 from sqlalchemy import func
 from sqlalchemy.orm import sessionmaker
-from auth.database import User, Route, Coordinate, engine, Estimation
-from auth.schemas import Route_Data
+from PPgroup5.pythonBackEnd.auth.database import User, Route, Coordinate, engine, Estimation
+from PPgroup5.pythonBackEnd.auth.schemas import Route_Data
 
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Session = sessionmaker(engine)
-
+#
 app = FastAPI(title='Veloapp')
 
 
@@ -96,8 +97,8 @@ def delete_user(user_id: int, db: Session = Depends(get_db)):
     db.delete(user)
     db.refresh(user)
     db.commit()
-    #delete his routes
-    return {"message: "f"Success, {user.name} with user id {user_id} was deleted"}
+    # delete his routes
+    return {"message": f"Success, {user.name} with user id {user_id} was deleted"}
 
 
 @app.get("/users_info/{user_id}")
@@ -115,6 +116,7 @@ def get_user(user_id: int, route_id: int = None):
         return {"routes": route_by_id, "name": user.name, "id": user.id, "login": user.login, "token_mobile": user.token_mobile}
 
 
+# не работает
 @app.get("/route_info/{route_id}")
 def get_route(route_id: int):
     session = Session()
@@ -126,6 +128,7 @@ def get_route(route_id: int):
     locname = geoLoc.reverse(str(session.query(Coordinate.latitude).filter(Coordinate.route_id == route_id).first())[1:-2] + ", " + str(session.query(Coordinate.longitude).filter(Coordinate.route_id == route_id).first())[1:-2])
     session.close()
     return route, coordinates, str(locname)
+
 
 @app.post("/route/")
 def post_route(route_info: Route_Data):
@@ -143,25 +146,32 @@ def post_route(route_info: Route_Data):
                                      cord_id=route_info.latitude_longitude_cordid[cord][2],
                                      operation_time=datetime.datetime.now())
         session.add(new_coordinates)
+
+
 @app.get("/free_route_id/")
 def get_free_route_id():
     session = Session()
     max_route_id = session.query(func.max(Route.route_id)).scalar()
     return {"free_route_id": max_route_id+1}
-@app.get("/token/{token}")
-def check_token(token: Route_Data.token):
+
+
+@app.get("/token_mobile/{token_mobile}")
+def check_token(token_mobile: str):
     session = Session()
-    valid_token = session.query(User.token_mobile).filter(User.token_mobile==token).first()
-    if not valid_token:
+    user = session.query(User).filter(User.token_mobile == token_mobile).first()
+    if not user:
         raise HTTPException(status_code=404, detail="Token not found")
     else:
-        return {"token": valid_token[0]}
+        return {"name": user.name, "id": user.id, "login": user.login, "token_mobile": user.token_mobile}
+
 
 # coordinates
 @app.get("/coordinates/{user_id}/")
 def get_coordinates_by_id(user_id: int, db: Session = Depends(get_db)):
     coordinates = db.query(Coordinate).filter(Coordinate.user_id == user_id).all()
     return coordinates
+
+
 @app.post("/coordinates/{user_id}")
 def create_coordinate_point(user_id: int, coordinate_data: Coordinate_get, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.id == user_id).first()
@@ -178,8 +188,10 @@ def create_coordinate_point(user_id: int, coordinate_data: Coordinate_get, db: S
     db.commit()
     db.refresh(new_coordinate)
     return new_coordinate
-@app.put("/coordinates/{user_id}", )
-def update_coordinate(user_id: int, cord_id: int, coordinate_data: Coordinate_get, db: Session = Depends(get_db)):
+
+
+@app.put("/coordinates/{user_id}")
+def update_coordinate_point(user_id: int, cord_id: int, coordinate_data: Coordinate_get, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -199,15 +211,33 @@ def update_coordinate(user_id: int, cord_id: int, coordinate_data: Coordinate_ge
         "message": f"Success, coordinate was updated"
     }
 
-#estimations
-@app.post("/routes/estimations/{user_id}")
-def create_estimations(user_id: int, estimator_data: Estimation_get, db: Session = Depends(get_db)):
+
+@app.delete("/coordinate/{cord_id}")
+def delete_coordinate_point(user_id: int, cord_id: int, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    coordinate = db.query(Coordinate).filter(Coordinate.cord_id == cord_id).first()
+    if not coordinate:
+        raise HTTPException(status_code=404, detail="Coordinate not found")
+    db.delete(coordinate)
+    db.refresh(coordinate)
+    db.commit()
+    return {"message": f"Success, {cord_id} was deleted"}
+
+
+# estimations
+@app.post("/routes/estimations/{route_id}")
+def create_estimation(user_id: int, estimator_data: Estimation_get, db: Session = Depends(get_db)):
     route = db.query(Route).filter(Route.route_id == estimator_data.route_id).first()
     if not route:
         raise HTTPException(status_code=404, detail="Route not found")
+    user = db.query(Estimation).filter(Estimation.user_id == user_id).first()
+    if user:
+        raise HTTPException(status_code=404, detail="Estimation with your id is already exists")
     new_estimation = Estimation(
         route_id=estimator_data.route_id,
-        estim=estimator_data.estim,
+        estimation_value=estimator_data.estimation,
         user_id=user_id,
         estimator_id=route.user_id,
         datetime=datetime.datetime.now()
@@ -215,5 +245,45 @@ def create_estimations(user_id: int, estimator_data: Estimation_get, db: Session
     db.add(new_estimation)
     db.commit()
     db.refresh(new_estimation)
-    # one estimation for one route
     return new_estimation
+
+
+@app.get("/routes/estimations/{route_id}")
+def get_estimation_by_route_id(user_id: int, route_id: int, db: Session = Depends(get_db)):
+    estimations = db.query(Estimation).filter(Estimation.route_id == route_id).all()
+    if estimations:
+        len_estimations = len(estimations)
+        average_value = sum([estimation.estimation_value for estimation in estimations]) / len_estimations
+        users_estimation = [estimation for estimation in estimations if estimation.user_id == user_id]
+        return {
+            "estimations": estimations, "average_value": average_value, "len_estimations": len_estimations,
+            "users_estimation": users_estimation
+        }
+    return {"message": f"No estimations to this route {route_id}"}
+
+
+@app.put("/routes/estimations/{route_id}")
+def update_coordinate_point(estimator_id: int, route_id: int, estimation_value: float, db: Session = Depends(get_db)):
+    estimation = db.query(Estimation).filter(
+        Estimation.route_id == route_id, Estimation.estimator_id == estimator_id
+    ).first()
+    if estimation:
+        estimation.estimation_value = estimation_value
+        estimation.datetime = datetime.datetime.now()
+        db.commit()
+        db.refresh(estimation)
+        return {"message": f"Success", "putted estimation": estimation}
+    raise HTTPException(status_code=404, detail="Estimations with your id not found")
+
+
+@app.delete("/routes/estimations/{route_id}")
+def delete_estimation(estimator_id: int, route_id: int, db: Session = Depends(get_db)):
+    estimation = db.query(Estimation).filter(
+        Estimation.route_id == route_id, Estimation.estimator_id == estimator_id
+    ).first()
+    if estimation:
+        db.delete(estimation)
+        db.refresh(estimation)
+        db.commit()
+        return {"message": f"Success", "deleted estimation": estimation}
+    raise HTTPException(status_code=404, detail="Estimations with your id not found")

@@ -4,9 +4,9 @@ import hashlib
 import jwt
 import os
 from datetime import datetime, timedelta
-from pg import SECRET_KEY
+from PPgroup5.pythonBackEnd.pg import SECRET_KEY
 from sqlalchemy.orm import sessionmaker
-from auth.database import User, engine
+from PPgroup5.pythonBackEnd.auth.database import User, engine
 
 
 Session = sessionmaker(bind=engine)

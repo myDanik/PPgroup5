@@ -27,5 +27,5 @@ class Coordinate_get(BaseModel):
 
 class Estimation_get(BaseModel):
     route_id: int
-    estim: float = Field(le=10, ge=1)
+    estimation: float = Field(le=5, ge=1)
 

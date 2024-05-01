@@ -1,6 +1,7 @@
 from sqlalchemy import create_engine, Column, Integer, String, Float, ForeignKey, DateTime
 from sqlalchemy.orm import declarative_base, relationship
-from pg import url
+from PPgroup5.pythonBackEnd.pg import url
+
 Base = declarative_base()
 
 
@@ -23,7 +24,7 @@ class User(Base):
 
 class Route(Base):
     __tablename__ = 'routes'
-    route_id = Column(Integer, primary_key=True, unique=True, nullable=False)
+    route_id = Column(Integer, primary_key=True, unique=True, nullable=False, autoincrement=True)
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
     estimation = Column(Float)
     distance = Column(Float)
@@ -45,9 +46,9 @@ class Coordinate(Base):
 
 class Estimation(Base):
     __tablename__ = 'estimations'
-    estim_id = Column(Integer, primary_key=True, nullable=False, autoincrement=True)
+    estimation_id = Column(Integer, primary_key=True, nullable=False, autoincrement=True)
     route_id = Column(Integer, ForeignKey('routes.route_id'), nullable=False)
-    estim = Column(Float, nullable=False)
+    estimation_value = Column(Float, nullable=False)
     user_id = Column(Integer, nullable=False)
     estimator_id = Column(Integer, ForeignKey('users.id'), nullable=False)
     datetime = Column(DateTime, nullable=False)
