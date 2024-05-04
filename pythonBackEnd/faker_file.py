@@ -1,18 +1,18 @@
 from faker import Faker
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from PPgroup5.pythonBackEnd.auth.database import Base, User, Route, Coordinate, Estimation
-from datetime import datetime
-from PPgroup5.pythonBackEnd.pg import url
+from PPgroup5.pythonBackEnd.auth.database import User, Route, Coordinate, Estimation, session
 import random
 
-engine = create_engine(url)
-
-Session = sessionmaker(bind=engine)
-session = Session()
 
 fake = Faker()
-
+# Для удаленных пользователей
+session.add(User(
+    id=0,
+    name="Deleted users",
+    login="0",
+    hashed_password="0",
+    salt_hashed_password="0",
+    token_mobile="0"
+))
 for i in range(1, 51):
     user = User(name=fake.name(), login=fake.user_name(), hashed_password=fake.password(),
                 salt_hashed_password=fake.password(), token_mobile=random.randint(10000, 100000))

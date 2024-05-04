@@ -1,14 +1,27 @@
+# from pydantic import EmailStr
 from sqlalchemy import create_engine, Column, Integer, String, Float, ForeignKey, DateTime
-from sqlalchemy.orm import declarative_base, relationship
+from sqlalchemy.orm import declarative_base, relationship, sessionmaker
 from PPgroup5.pythonBackEnd.pg import url
 
 Base = declarative_base()
+engine = create_engine(url)
+Session = sessionmaker(engine)
+session = Session()
+
+
+def get_db():
+    db = Session()
+    try:
+        yield db
+    finally:
+        db.close()
 
 
 class User(Base):
     __tablename__ = 'users'
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String, nullable=False)
+    # email: EmailStr
     login = Column(String, nullable=False, unique=True)
     hashed_password = Column(String, nullable=False)
     salt_hashed_password = Column(String, nullable=False)
@@ -54,7 +67,5 @@ class Estimation(Base):
     datetime = Column(DateTime, nullable=False)
     route = relationship("Route", back_populates="estimations")
 
-
-engine = create_engine(url)
 
 Base.metadata.create_all(engine)
