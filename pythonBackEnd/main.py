@@ -15,8 +15,8 @@ app.include_router(router)
 
 
 @app.get("/users/{user_id}")
-def get_user_by_id(user_id: int, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.id == user_id).first()
+def get_user_by_id(user_id: int, session: Session = Depends(get_db)):
+    user = session.query(User).filter(User.id == user_id).first()
     not_found_error(user, "User")
     return {"status": "success",
             "data": {
@@ -30,9 +30,9 @@ def get_user_by_id(user_id: int, db: Session = Depends(get_db)):
 
 
 @app.put("/users/{user_id}")
-def update_user(user_id: int, user_data: UserDB, permission: bool = False, db: Session = Depends(get_db)):
+def update_user(user_id: int, user_data: UserDB, permission: bool = False, session: Session = Depends(get_db)):
     has_not_permission_error(permission)
-    user = db.query(User).filter(User.id == user_id).first()
+    user = session.query(User).filter(User.id == user_id).first()
     not_found_error(user, "User")
     if user.login == user_data.login:
         raise HTTPException(status_code=404, detail={
@@ -47,8 +47,8 @@ def update_user(user_id: int, user_data: UserDB, permission: bool = False, db: S
     user_data["salt_hashed_password"] = generated_salt
     for attr, value in user_data.items():
         setattr(user, attr, value)
-    db.commit()
-    db.refresh(user)
+    session.commit()
+    session.refresh(user)
     return {"status": "success",
             "data": {
                 "id": user.id,
@@ -61,29 +61,29 @@ def update_user(user_id: int, user_data: UserDB, permission: bool = False, db: S
 
 
 @app.delete("/users/{user_id}")
-def delete_user(user_id: int, permission: bool = False, db: Session = Depends(get_db)):
+def delete_user(user_id: int, permission: bool = False, session: Session = Depends(get_db)):
     has_not_permission_error(permission)
-    user = db.query(User).filter(User.id == user_id).first()
+    user = session.query(User).filter(User.id == user_id).first()
     not_found_error(user, "User")
 
-    db.query(Estimation).filter(Estimation.estimator_id == user_id).update({'estimator_id': 0})
-    db.query(Estimation).filter(Estimation.user_id == user_id).update({'user_id': 0})
-    db.query(Coordinate).filter(Coordinate.user_id == user_id).update({'user_id': 0})
-    db.query(Route).filter(Route.user_id == user_id).update({'user_id': 0})
-    db.delete(user)
-    db.commit()
+    session.query(Estimation).filter(Estimation.estimator_id == user_id).update({'estimator_id': 0})
+    session.query(Estimation).filter(Estimation.user_id == user_id).update({'user_id': 0})
+    session.query(Coordinate).filter(Coordinate.user_id == user_id).update({'user_id': 0})
+    session.query(Route).filter(Route.user_id == user_id).update({'user_id': 0})
+    session.delete(user)
+    session.commit()
     return {
         "status": "success",
         "data": None,
         "details": None
-        }
+    }
 
 
 @app.get("/users_info/{user_id}")
-def get_user(user_id: int, route_id: int = None, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.id == user_id).first()
+def get_user(user_id: int, route_id: int = None, session: Session = Depends(get_db)):
+    user = session.query(User).filter(User.id == user_id).first()
     not_found_error(user, "User")
-    routes = db.query(Coordinate).filter((Coordinate.user_id == user_id)).all()
+    routes = session.query(Coordinate).filter((Coordinate.user_id == user_id)).all()
     if route_id is None:
         return {
             "status": "success",
@@ -94,7 +94,7 @@ def get_user(user_id: int, route_id: int = None, db: Session = Depends(get_db)):
             },
             "details": None
         }
-    route_by_id = db.query(Coordinate).filter((Coordinate.user_id == user_id),
+    route_by_id = session.query(Coordinate).filter((Coordinate.user_id == user_id),
                                                    (Coordinate.route_id == route_id)).all()
     return {
         "status": "success",
@@ -107,10 +107,8 @@ def get_user(user_id: int, route_id: int = None, db: Session = Depends(get_db)):
     }
 
 
-# не работает
 @app.get("/route_info/{route_id}")
-def get_route(route_id: int):
-    session = Session()
+def get_route(route_id: int, session: Session = Depends(get_db)):
     route = session.query(Route).filter(Route.route_id == route_id).first()
     not_found_error(route, "Route")
     coordinates = session.query(Coordinate).filter(Coordinate.route_id == route_id).all()
@@ -118,13 +116,17 @@ def get_route(route_id: int):
     locname = geoLoc.reverse(
         str(session.query(Coordinate.latitude).filter(Coordinate.route_id == route_id).first())[1:-2] + ", " + str(
             session.query(Coordinate.longitude).filter(Coordinate.route_id == route_id).first())[1:-2])
-    session.close()
-    return route, coordinates, str(locname)
+    return {
+        "status": "success",
+        "data": {"route": route,
+                 "coordinates": coordinates,
+                 "locname": str(locname)},
+        "details": None
+    }
 
 
 @app.post("/route/")
-def post_route(route_info: Route_Data):
-    session = Session()
+def post_route(route_info: Route_Data, session: Session = Depends(get_db)):
     user_id = session.query(User.id).filter(User.token == route_info.token).first()
     dist = 0
     for i in range(len(route_info.latitude_longitude_cordid) - 1):
@@ -139,22 +141,27 @@ def post_route(route_info: Route_Data):
                                      cord_id=route_info.latitude_longitude_cordid[cord][2],
                                      operation_time=datetime.datetime.now())
         session.add(new_coordinates)
-
-
-@app.delete("/route/")
-def delete_route(route_id: int, permission: bool = False, db: Session = Depends(get_db)):
-    has_not_permission_error(permission)
-    route = db.query(Route).filter(Route.route_id == route_id).first()
-    not_found_error(route, "Route")
-    db.query(Estimation).filter(Estimation.route_id == route_id).delete()
-    db.query(Coordinate).filter(Coordinate.route_id == route_id).delete()
-    db.delete(route)
-    db.commit()
     return {
         "status": "success",
         "data": None,
         "details": None
-        }
+    }
+
+
+@app.delete("/route/")
+def delete_route(route_id: int, permission: bool = False, session: Session = Depends(get_db)):
+    has_not_permission_error(permission)
+    route = session.query(Route).filter(Route.route_id == route_id).first()
+    not_found_error(route, "Route")
+    session.query(Estimation).filter(Estimation.route_id == route_id).delete()
+    session.query(Coordinate).filter(Coordinate.route_id == route_id).delete()
+    session.delete(route)
+    session.commit()
+    return {
+        "status": "success",
+        "data": None,
+        "details": None
+    }
 
 
 @app.get("/free_route_id/")
@@ -165,8 +172,8 @@ def get_free_route_id():
 
 
 @app.get("/token_mobile/{token_mobile}")
-def check_token(token_mobile: str, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.token_mobile == token_mobile).first()
+def check_token(token_mobile: str, session: Session = Depends(get_db)):
+    user = session.query(User).filter(User.token_mobile == token_mobile).first()
     not_found_error(user, "User")
     return {
         "status": "success",
@@ -181,23 +188,23 @@ def check_token(token_mobile: str, db: Session = Depends(get_db)):
 
 
 # coordinates
-@app.get("/coordinates/{user_id}/")
-def get_coordinates_by_id(user_id: int, permission: bool = False, db: Session = Depends(get_db)):
+@app.get("/coordinates")
+def get_coordinates_by_id(user_id: int, permission: bool = False, session: Session = Depends(get_db)):
     has_not_permission_error(permission)
-    coordinates = db.query(Coordinate).filter(Coordinate.user_id == user_id).all()
+    coordinates = session.query(Coordinate).filter(Coordinate.user_id == user_id).all()
     not_found_error(coordinates, "Coordinates")
     return {
         "status": "success",
         "data": {
-                "coordinates": coordinates
+            "coordinates": coordinates
         },
         "details": None
     }
 
 
-@app.post("/coordinates/{user_id}")
-def create_coordinate_point(user_id: int, coordinate_data: Coordinate_get, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.id == user_id).first()
+@app.post("/coordinate/")
+def create_coordinate_point(user_id: int, coordinate_data: Coordinate_get, session: Session = Depends(get_db)):
+    user = session.query(User).filter(User.id == user_id).first()
     not_found_error(user, "User")
     new_coordinate = Coordinate(
         user_id=user_id,
@@ -205,9 +212,9 @@ def create_coordinate_point(user_id: int, coordinate_data: Coordinate_get, db: S
         longitude=coordinate_data.longitude,
         operation_time=datetime.datetime.now()
     )
-    db.add(new_coordinate)
-    db.commit()
-    db.refresh(new_coordinate)
+    session.add(new_coordinate)
+    session.commit()
+    session.refresh(new_coordinate)
     return {
         "status": "success",
         "data": {
@@ -222,19 +229,19 @@ def create_coordinate_point(user_id: int, coordinate_data: Coordinate_get, db: S
     }
 
 
-@app.put("/coordinates/{user_id}")
+@app.put("/coordinate/{coordinate.cord_id")
 def update_coordinate_point(user_id: int, cord_id: int, coordinate_data: Coordinate_get, permission: bool = False,
-                            db: Session = Depends(get_db)):
+                            session: Session = Depends(get_db)):
     has_not_permission_error(permission)
-    user = db.query(User).filter(User.id == user_id).first()
+    user = session.query(User).filter(User.id == user_id).first()
     not_found_error(user, "User")
-    coordinate = db.query(Coordinate).filter(Coordinate.cord_id == cord_id).first()
+    coordinate = session.query(Coordinate).filter(Coordinate.cord_id == cord_id).first()
     not_found_error(coordinate, "Coordinate")
     coordinate.latitude = coordinate_data.latitude
     coordinate.longitude = coordinate_data.longitude
     coordinate.operation_time = datetime.datetime.now()
-    db.commit()
-    db.refresh(user)
+    session.commit()
+    session.refresh(user)
     return {
         "status": "success",
         "data": {
@@ -250,15 +257,15 @@ def update_coordinate_point(user_id: int, cord_id: int, coordinate_data: Coordin
 
 
 @app.delete("/coordinate/{cord_id}")
-def delete_coordinate_point(user_id: int, cord_id: int, permission: bool = False, db: Session = Depends(get_db)):
+def delete_coordinate_point(user_id: int, cord_id: int, permission: bool = False, session: Session = Depends(get_db)):
     has_not_permission_error(permission)
-    user = db.query(User).filter(User.id == user_id).first()
+    user = session.query(User).filter(User.id == user_id).first()
     not_found_error(user, "User")
-    coordinate = db.query(Coordinate).filter(Coordinate.cord_id == cord_id).first()
+    coordinate = session.query(Coordinate).filter(Coordinate.cord_id == cord_id).first()
     not_found_error(coordinate, "Coordinate")
-    db.delete(coordinate)
-    db.refresh(coordinate)
-    db.commit()
+    session.delete(coordinate)
+    session.refresh(coordinate)
+    session.commit()
     return {
         "status": "success",
         "data": {
@@ -274,11 +281,11 @@ def delete_coordinate_point(user_id: int, cord_id: int, permission: bool = False
 
 
 # estimations
-@app.post("/routes/estimations/{route_id}")
-def create_estimation(user_id: int, estimator_data: Estimation_get, db: Session = Depends(get_db)):
-    route = db.query(Route).filter(Route.route_id == estimator_data.route_id).first()
+@app.post("/routes/{route_id}/estimation")
+def create_estimation(user_id: int, estimator_data: Estimation_get, session: Session = Depends(get_db)):
+    route = session.query(Route).filter(Route.route_id == estimator_data.route_id).first()
     not_found_error(route, "Route")
-    user = db.query(Estimation).filter(Estimation.user_id == user_id).first()
+    user = session.query(Estimation).filter(Estimation.user_id == user_id).first()
     not_found_error(user, "User")
     new_estimation = Estimation(
         route_id=estimator_data.route_id,
@@ -286,10 +293,10 @@ def create_estimation(user_id: int, estimator_data: Estimation_get, db: Session 
         user_id=user_id,
         estimator_id=route.user_id,
         datetime=datetime.datetime.now()
-        )
-    db.add(new_estimation)
-    db.commit()
-    db.refresh(new_estimation)
+    )
+    session.add(new_estimation)
+    session.commit()
+    session.refresh(new_estimation)
     return {
         "status": "success",
         "data": {
@@ -304,9 +311,9 @@ def create_estimation(user_id: int, estimator_data: Estimation_get, db: Session 
     }
 
 
-@app.get("/routes/estimations/{route_id}")
-def get_estimation_by_route_id(user_id: int, route_id: int, db: Session = Depends(get_db)):
-    estimations = db.query(Estimation).filter(Estimation.route_id == route_id).all()
+@app.get("/routes/{route_id}/estimations")
+def get_estimation_by_route_id(user_id: int, route_id: int, session: Session = Depends(get_db)):
+    estimations = session.query(Estimation).filter(Estimation.route_id == route_id).all()
     not_found_error(estimations, "Estimations")
     len_estimations = len(estimations)
     average_value = sum([estimation.estimation_value for estimation in estimations]) / len_estimations
@@ -323,18 +330,18 @@ def get_estimation_by_route_id(user_id: int, route_id: int, db: Session = Depend
     }
 
 
-@app.put("/routes/estimations/{route_id}")
+@app.put("/routes/{route_id}/estimation/{estimation.estimation_id}")
 def update_coordinate_point(estimator_id: int, route_id: int, estimation_value: float, permission: bool = False,
-                            db: Session = Depends(get_db)):
+                            session: Session = Depends(get_db)):
     has_not_permission_error(permission)
-    estimation = db.query(Estimation).filter(
+    estimation = session.query(Estimation).filter(
         Estimation.route_id == route_id, Estimation.estimator_id == estimator_id
     ).first()
     not_found_error(estimation, "Estimation")
     estimation.estimation_value = estimation_value
     estimation.datetime = datetime.datetime.now()
-    db.commit()
-    db.refresh(estimation)
+    session.commit()
+    session.refresh(estimation)
     return {
         "status": "success",
         "data": {
@@ -349,15 +356,15 @@ def update_coordinate_point(estimator_id: int, route_id: int, estimation_value: 
     }
 
 
-@app.delete("/routes/estimations/{route_id}")
-def delete_estimation(estimation_id: int, route_id: int, permission: bool = False, db: Session = Depends(get_db)):
+@app.delete("/routes/{route_id}/estimation/{estimation.estimation_id}")
+def delete_estimation(estimation_id: int, route_id: int, permission: bool = False, session: Session = Depends(get_db)):
     has_not_permission_error(permission)
-    estimation = db.query(Estimation).filter(
+    estimation = session.query(Estimation).filter(
         Estimation.route_id == route_id, Estimation.estimation_id == estimation_id).first()
     not_found_error(estimation, "Estimation")
-    db.delete(estimation)
-    db.refresh(estimation)
-    db.commit()
+    session.delete(estimation)
+    session.refresh(estimation)
+    session.commit()
     return {
         "status": "success",
         "data": {

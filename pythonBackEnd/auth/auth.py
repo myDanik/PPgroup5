@@ -15,8 +15,8 @@ router = APIRouter(
 
 
 @router.post("/authorization")
-def create_user(user_data: UserDB, db: Session = Depends(get_db)):
-    if db.query(User).filter(User.login == user_data.login).first():
+def create_user(user_data: UserDB, session: Session = Depends(get_db)):
+    if session.query(User).filter(User.login == user_data.login).first():
         raise HTTPException(status_code=409, detail={
             "status": "error",
             "data": None,
@@ -30,9 +30,9 @@ def create_user(user_data: UserDB, db: Session = Depends(get_db)):
         token_mobile=generate_token(),
         salt_hashed_password=generated_salt
     )
-    db.add(new_user)
-    db.commit()
-    db.refresh(new_user)
+    session.add(new_user)
+    session.commit()
+    session.refresh(new_user)
     entry_token = create_token(new_user.id, timedelta(hours=12))
     return {"status": "success",
             "data": {

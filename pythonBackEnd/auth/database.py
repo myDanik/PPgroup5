@@ -29,12 +29,6 @@ class User(Base):
     routes = relationship("Route", back_populates="user")
 
 
-# class Association_routes_cords(Base):
-#     __tablename__ = 'route_coordinate_association',
-#     route_id = Column(Integer, ForeignKey('routes.route_id'), primary_key=True)
-#     cord_id = Column(Integer, ForeignKey('coordinates.cord_id'), primary_key=True)
-
-
 class Route(Base):
     __tablename__ = 'routes'
     route_id = Column(Integer, primary_key=True, unique=True, nullable=False, autoincrement=True)
