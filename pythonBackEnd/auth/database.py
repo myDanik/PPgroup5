@@ -1,5 +1,3 @@
-# from pydantic import EmailStr
-from pydantic import EmailStr
 from sqlalchemy import create_engine, Column, Integer, String, Float, ForeignKey, DateTime, Boolean
 from sqlalchemy.orm import declarative_base, relationship, sessionmaker
 from PPgroup5.pythonBackEnd.pg import url

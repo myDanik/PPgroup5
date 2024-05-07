@@ -1,7 +1,7 @@
 import datetime
 from geopy.distance import great_circle as GC
 from geopy.geocoders import Nominatim
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, Depends
 from sqlalchemy import func
 
 from PPgroup5.pythonBackEnd.auth.auth import router
@@ -10,7 +10,7 @@ from PPgroup5.pythonBackEnd.auth.schemas import is_login, error_login_telephone_
 from PPgroup5.pythonBackEnd.auth.tokens_hashs import creating_hash_salt
 from PPgroup5.pythonBackEnd.models.models import UserDB, Coordinate_get, Estimation_get
 from PPgroup5.pythonBackEnd.auth.database import User, Route, Coordinate, Estimation, get_db, Session
-from PPgroup5.pythonBackEnd.schemas.schemas import Route_Data, has_not_permission_error, not_found_error
+from PPgroup5.pythonBackEnd.schemas.schemas import has_not_permission_error, not_found_error
 
 app = FastAPI(title='Veloapp')
 app.include_router(router)
@@ -115,8 +115,7 @@ def get_route(route_id: int, session: Session = Depends(get_db)):
         longitude_str = str(coord.longitude)
         locname = geoLoc.reverse(f"{latitude_str}, {longitude_str}")
         locnames.append(str(locname) if locname else "")
-
-     return {
+    return {
         "status": "success",
         "data": {"route": route,
                  "coordinates": coordinates,
@@ -176,12 +175,7 @@ def check_token(token_mobile: str, session: Session = Depends(get_db)):
     not_found_error(user, "User")
     return {
         "status": "success",
-        "data": {
-            "id": user.id,
-            "name": user.name,
-            "login": user.login,
-            "token_mobile": user.token_mobile
-        },
+        "data": user,
         "details": None
     }
 

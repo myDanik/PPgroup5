@@ -17,7 +17,7 @@ router = APIRouter(
 @router.post("/authorization")
 def create_user(user_data: UserSignUp, session: Session = Depends(get_db)):
     telephone_number, email, _ = is_login(user_data.login, error_login_telephone_userexists,
-                        error_login_email_userexists, error_login_udentified)
+                                          error_login_email_userexists, error_login_udentified)
     generated_salt, hashed_password = creating_hash_salt(user_data.password)
     user = User(
         name=user_data.name,
@@ -33,9 +33,9 @@ def create_user(user_data: UserSignUp, session: Session = Depends(get_db)):
     entry_token = create_token(user.id, timedelta(hours=12))
     return {"status": "success",
             "data": {
-                        "entry_token": entry_token,
-                        "user": user
-                    },
+                "entry_token": entry_token,
+                "user": user
+            },
             "details": None
             }
 
