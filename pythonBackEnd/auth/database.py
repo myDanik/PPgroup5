@@ -1,5 +1,6 @@
 # from pydantic import EmailStr
-from sqlalchemy import create_engine, Column, Integer, String, Float, ForeignKey, DateTime
+from pydantic import EmailStr
+from sqlalchemy import create_engine, Column, Integer, String, Float, ForeignKey, DateTime, Boolean
 from sqlalchemy.orm import declarative_base, relationship, sessionmaker
 from PPgroup5.pythonBackEnd.pg import url
 
@@ -21,8 +22,13 @@ class User(Base):
     __tablename__ = 'users'
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String, nullable=False)
-    # email: EmailStr
-    login = Column(String, nullable=False, unique=True)
+    email = Column(String)
+    telephone_number = Column(String)
+    surname = Column(String)
+    patronymic = Column(String)
+    location = Column(String)
+    # True = male, False = female
+    sex = Column(Boolean)
     hashed_password = Column(String, nullable=False)
     salt_hashed_password = Column(String, nullable=False)
     token_mobile = Column(String, nullable=False)
@@ -33,7 +39,6 @@ class Route(Base):
     __tablename__ = 'routes'
     route_id = Column(Integer, primary_key=True, unique=True, nullable=False, autoincrement=True)
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
-    estimation = Column(Float)
     distance = Column(Float)
     user = relationship("User", back_populates="routes")
     estimations = relationship("Estimation", back_populates="route")

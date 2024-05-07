@@ -5,8 +5,10 @@ from fastapi import FastAPI, HTTPException, Depends
 from sqlalchemy import func
 
 from PPgroup5.pythonBackEnd.auth.auth import router
+from PPgroup5.pythonBackEnd.auth.schemas import is_login, error_login_telephone_userexists, \
+    error_login_email_userexists, error_login_udentified, is_valid_email
 from PPgroup5.pythonBackEnd.auth.tokens_hashs import creating_hash_salt
-from PPgroup5.pythonBackEnd.auth.models import UserDB, Coordinate_get, Estimation_get
+from PPgroup5.pythonBackEnd.models.models import UserDB, Coordinate_get, Estimation_get
 from PPgroup5.pythonBackEnd.auth.database import User, Route, Coordinate, Estimation, get_db, Session
 from PPgroup5.pythonBackEnd.schemas.schemas import Route_Data, has_not_permission_error, not_found_error
 
@@ -20,10 +22,7 @@ def get_user_by_id(user_id: int, session: Session = Depends(get_db)):
     not_found_error(user, "User")
     return {"status": "success",
             "data": {
-                "id": user.id,
-                "name": user.name,
-                "login": user.login,
-                "token_mobile": user.token_mobile
+                "user": user
             },
             "details": None
             }
@@ -34,21 +33,17 @@ def update_user(user_id: int, user_data: UserDB, permission: bool = False, sessi
     has_not_permission_error(permission)
     user = session.query(User).filter(User.id == user_id).first()
     not_found_error(user, "User")
-    if user.login == user_data.login:
-        raise HTTPException(status_code=404, detail={
-            "status": "error",
-            "data": None,
-            "details": "Login is already exists"
-        })
+    telephone_number, email, _ = is_login(user_data.login, error_login_telephone_userexists,
+                                          error_login_email_userexists, error_login_udentified)
+
     generated_salt, hashed_password = creating_hash_salt(user_data.password)
-    user_data = user_data.dict()
+
     del user_data["password"]
     user_data["hashed_password"] = hashed_password
     user_data["salt_hashed_password"] = generated_salt
     for attr, value in user_data.items():
         setattr(user, attr, value)
     session.commit()
-    session.refresh(user)
     return {"status": "success",
             "data": {
                 "id": user.id,
@@ -112,40 +107,44 @@ def get_route(route_id: int, session: Session = Depends(get_db)):
     route = session.query(Route).filter(Route.route_id == route_id).first()
     not_found_error(route, "Route")
     coordinates = session.query(Coordinate).filter(Coordinate.route_id == route_id).all()
+    not_found_error(coordinates, "coordinates")
     geoLoc = Nominatim(user_agent="GetLoc")
-    locname = geoLoc.reverse(
-        str(session.query(Coordinate.latitude).filter(Coordinate.route_id == route_id).first())[1:-2] + ", " + str(
-            session.query(Coordinate.longitude).filter(Coordinate.route_id == route_id).first())[1:-2])
-    return {
+    locnames = []
+    for coord in coordinates:
+        latitude_str = str(coord.latitude)
+        longitude_str = str(coord.longitude)
+        locname = geoLoc.reverse(f"{latitude_str}, {longitude_str}")
+        locnames.append(str(locname) if locname else "")
+
+     return {
         "status": "success",
         "data": {"route": route,
                  "coordinates": coordinates,
-                 "locname": str(locname)},
+                 "locnames": locnames},
         "details": None
     }
 
 
-@app.post("/route/")
-def post_route(route_info: Route_Data, session: Session = Depends(get_db)):
-    user_id = session.query(User.id).filter(User.token == route_info.token).first()
-    dist = 0
-    for i in range(len(route_info.latitude_longitude_cordid) - 1):
-        dist += GC((route_info.latitude_longitude_cordid[i][0], route_info.latitude_longitude_cordid[i][1]),
-                   (route_info.latitude_longitude_cordid[i + 1][0], route_info.latitude_longitude_cordid[i + 1][1])).km
-    new_route = Route(route_id=route_info.route_id, user_id=user_id, estimation=None, distance=dist)
-    session.add(new_route)
-    for cord in range(len(route_info.latitude_longitude_cordid)):
-        new_coordinates = Coordinate(route_id=route_info.route_id, user_id=user_id,
-                                     latitude=route_info.latitude_longitude_cordid[cord][0],
-                                     longitude=route_info.latitude_longitude_cordid[cord][1],
-                                     cord_id=route_info.latitude_longitude_cordid[cord][2],
-                                     operation_time=datetime.datetime.now())
-        session.add(new_coordinates)
-    return {
-        "status": "success",
-        "data": None,
-        "details": None
-    }
+@app.put("/users/{user_id}")
+def update_user(user_id: int, user_data: UserDB, permission: bool = False, session: Session = Depends(get_db)):
+    has_not_permission_error(permission)
+    user = session.query(User).filter(User.id == user_id).first()
+    not_found_error(user, "User")
+    if session.query(User).filter(User.telephone_number == user_data.telephone_number).first():
+        user_data.telephone_number = user.telephone_number
+    if session.query(User).filter(User.email == user_data.email).first() or (not is_valid_email(user_data.email)):
+        user_data.email = user.email
+    generated_salt, hashed_password = creating_hash_salt(user_data.password)
+
+    setattr(user, "hashed_password", hashed_password)
+    setattr(user, "salt_hashed_password", generated_salt)
+    for attr, value in user_data.dict(exclude_unset=True, exclude={"password"}).items():
+        setattr(user, attr, value)
+    session.commit()
+    return {"status": "success",
+            "data": user,
+            "details": None
+            }
 
 
 @app.delete("/route/")

@@ -13,7 +13,7 @@ if not session.query(User).filter(User.id == 0).first():
         id=0,
         name="Deleted users",
         email="deleted@mail.ru",
-        telephone="+71234567890",
+        telephone_number="+71234567890",
         hashed_password="0",
         salt_hashed_password="0",
         token_mobile="0"
@@ -22,16 +22,16 @@ if not session.query(User).filter(User.id == 0).first():
 session.add(User(
     name=fake.name(),
     hashed_password=fake.password(),
-    telephone='+' + str(random.randint(10 ** 10, 10 ** 11 - 1)),
+    telephone_number='+' + str(random.randint(10 ** 10, 10 ** 11 - 1)),
     salt_hashed_password=fake.password(),
     token_mobile=random.randint(10000, 100000)
 ))
 session.commit()
 max_user_id = session.query(func.max(User.id)).scalar()
-route = Route(
+session.add(Route(
     user_id=max_user_id,
     distance=random.uniform(1, 100)
-)
+))
 session.commit()
 max_route_id = session.query(func.max(Route.route_id)).scalar()
 
@@ -39,7 +39,7 @@ for i in range(1, 50):
     user = User(
         name=fake.name(),
         hashed_password=fake.password(),
-        telephone='+' + str(random.randint(10**11, 10**12 - 1)),
+        telephone_number='+' + str(random.randint(10**10, 10**11 - 1)),
         salt_hashed_password=fake.password(),
         token_mobile=random.randint(10000, 100000)
     )
