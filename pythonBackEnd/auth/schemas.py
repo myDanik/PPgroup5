@@ -13,11 +13,9 @@ def is_telephone_number(telephone: str):
                     "details": "length of telephone number"}
         telephone = telephone[1:]
     if not telephone.isdigit():
-        telephone = "+" + telephone
         return {"result": False,
                 "telephone": telephone,
                 "details": "telephone number not from digits"}
-    telephone = "+" + telephone
     return {"result": True,
             "telephone": telephone,
             "details": None}

@@ -3,6 +3,7 @@ from geopy.distance import great_circle as GC
 from geopy.geocoders import Nominatim
 from fastapi import FastAPI, Depends
 from sqlalchemy import func
+from starlette.middleware.cors import CORSMiddleware
 
 from PPgroup5.pythonBackEnd.auth.auth import router
 from PPgroup5.pythonBackEnd.auth.schemas import is_login, error_login_telephone_userexists, \
@@ -14,6 +15,17 @@ from PPgroup5.pythonBackEnd.schemas.schemas import has_not_permission_error, not
 
 app = FastAPI(title='Veloapp')
 app.include_router(router)
+
+origins = [
+    "http://localhost:8080"
+]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.get("/users/{user_id}")
@@ -257,7 +269,6 @@ def delete_coordinate_point(user_id: int, cord_id: int, permission: bool = False
     coordinate = session.query(Coordinate).filter(Coordinate.cord_id == cord_id).first()
     not_found_error(coordinate, "Coordinate")
     session.delete(coordinate)
-    session.refresh(coordinate)
     session.commit()
     return {
         "status": "success",
