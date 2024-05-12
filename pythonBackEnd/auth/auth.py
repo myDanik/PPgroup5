@@ -7,6 +7,7 @@ from PPgroup5.pythonBackEnd.auth.schemas import is_login, error_login_email_user
     error_login_telephone_userexists, error_login_udentified, nothing
 from PPgroup5.pythonBackEnd.auth.tokens_hashs import verify_token, authenticated_user, create_token, token_user, \
     generate_token, creating_hash_salt
+from PPgroup5.pythonBackEnd.models.models import MyUserOut
 
 router = APIRouter(
     prefix="/auth",
@@ -29,51 +30,46 @@ def create_user(user_data: UserSignUp, session: Session = Depends(get_db)):
     )
     session.add(user)
     session.commit()
-    session.refresh(user)
-    entry_token = create_token(user.id, timedelta(hours=12))
     return {"status": "success",
             "data": {
-                "entry_token": entry_token,
-                "user": user
+                "user": MyUserOut(
+                    id=user.id,
+                    name=user.name,
+                    email=user.email,
+                    telephone_number=user.telephone_number,
+                    surname=user.surname,
+                    patronymic=user.patronymic,
+                    location=user.location,
+                    sex=user.sex,
+                    token_mobile=user.token_mobile
+                )
             },
             "details": None
             }
 
 
 @router.post("/login")
-def login(login_user: UserLogin, entry_token: str = None, db: Session = Depends(get_db)):
-    if token_user(entry_token):
-        user_id = token_user(entry_token)
-        if user_id:
-            user = db.query(User).filter(User.id == user_id).first()
-            if user:
-                return {"status": "success",
-                        "data": {
-                            "entry_token": entry_token,
-                            "id": user.id,
-                            "name": user.name,
-                            "telephone_number": user.telephone_number,
-                            "email": user.email,
-                            "token_mobile": user.token_mobile
-                        },
-                        "details": None
-                        }
-            raise HTTPException(status_code=404, detail={
-                "status": "error",
-                "data": None,
-                "details": "Invalid token"
-            })
+def login(login_user: UserLogin, session: Session = Depends(get_db)):
     telephone_number, email, user = is_login(login_user.login, nothing, nothing, error_login_udentified)
     if user:
         if authenticated_user(login_user.password, user.hashed_password, user.salt_hashed_password):
-            entry_token = create_token(user.id, timedelta(hours=2))
             return {"status": "success",
                     "data": {
-                        "entry_token": entry_token,
-                        "user": user
+                        "user": MyUserOut(
+                            id=user.id,
+                            name=user.name,
+                            email=user.email,
+                            telephone_number=user.telephone_number,
+                            surname=user.surname,
+                            patronymic=user.patronymic,
+                            location=user.location,
+                            sex=user.sex,
+                            token_mobile=user.token_mobile
+                        )
                     },
                     "details": None
                     }
+
     raise HTTPException(status_code=404, detail={
         "status": "error",
         "data": None,
@@ -81,18 +77,18 @@ def login(login_user: UserLogin, entry_token: str = None, db: Session = Depends(
     })
 
 
-@router.post("/logout")
-def logout(token: str):
-    if verify_token(token):
-        return {"status": "success",
-                "data": {
-                    "entry_token": None,
-                },
-                "details": "Token was verified"
-                }
-    return {"status": "success",
-            "data": {
-                "entry_token": None,
-            },
-            "details": "Token was not verified"
-            }
+# @router.post("/logout")
+# def logout(token: str):
+#     if verify_token(token):
+#         return {"status": "success",
+#                 "data": {
+#                     "entry_token": None,
+#                 },
+#                 "details": "Token was verified"
+#                 }
+#     return {"status": "success",
+#             "data": {
+#                 "entry_token": None,
+#             },
+#             "details": "Token was not verified"
+#             }

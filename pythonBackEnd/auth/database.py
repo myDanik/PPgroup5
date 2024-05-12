@@ -38,6 +38,9 @@ class Route(Base):
     route_id = Column(Integer, primary_key=True, unique=True, nullable=False, autoincrement=True)
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
     distance = Column(Float)
+    travel_time = Column(Integer)
+    comment = Column(String)
+    operation_time = Column(DateTime)
     user = relationship("User", back_populates="routes")
     estimations = relationship("Estimation", back_populates="route")
     coordinates = relationship("Coordinate", back_populates="routes")
@@ -62,6 +65,7 @@ class Estimation(Base):
     user_id = Column(Integer, nullable=False)
     estimator_id = Column(Integer, ForeignKey('users.id'), nullable=False)
     datetime = Column(DateTime, nullable=False)
+    comment = Column(String)
     route = relationship("Route", back_populates="estimations")
 
 
