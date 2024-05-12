@@ -345,25 +345,20 @@ def delete_coordinate_point(user_id: int, cord_id: int, permission: bool = False
 def create_estimation(user_id: int, estimator_data: EstimationGet, session: Session = Depends(get_db)):
     route = session.query(Route).filter(Route.route_id == estimator_data.route_id).first()
     not_found_error(route, "Route")
-    user = session.query(Estimation).filter(Estimation.user_id == user_id).first()
-    not_found_error(user, "User")
     new_estimation = Estimation(
         route_id=estimator_data.route_id,
         estimation_value=estimator_data.estimation,
-        user_id=user_id,
-        estimator_id=route.user_id,
+        estimator_id=user_id,
         comment=estimator_data.comment,
         datetime=datetime.datetime.now()
     )
     session.add(new_estimation)
     session.commit()
-    session.refresh(new_estimation)
     return {
         "status": "success",
         "data": {
             "estimator_id": new_estimation.estimator_id,
             "route_id": new_estimation.route_id,
-            "user_id": new_estimation.user_id,
             "estimation_id": new_estimation.estimation_id,
             "estimation_value": new_estimation.estimation_value,
             "datetime": new_estimation.datetime,
@@ -379,14 +374,14 @@ def get_estimation_by_route_id(user_id: int, route_id: int, session: Session = D
     not_found_error(estimations, "Estimations")
     len_estimations = len(estimations)
     average_value = sum([estimation.estimation_value for estimation in estimations]) / len_estimations
-    users_estimation = [estimation for estimation in estimations if estimation.user_id == user_id]
+    my_estimation = [estimation for estimation in estimations if estimation.estimator_id == user_id]
     return {
         "status": "success",
         "data": {
             "estimations": estimations,
             "average_value": average_value,
             "len_estimations": len_estimations,
-            "users_estimation": users_estimation
+            "my_estimation": my_estimation
         },
         "details": None
     }
@@ -413,10 +408,9 @@ def update_estimation(estimator_id: int, route_id: int, estimation_value: float,
 
 
 @app.delete("/routes/{route_id}/estimation/{estimation.estimation_id}")
-def delete_estimation(estimation_id: int, route_id: int, permission: bool = False, session: Session = Depends(get_db)):
+def delete_estimation(estimation_id: int, permission: bool = False, session: Session = Depends(get_db)):
     has_not_permission_error(permission)
-    estimation = session.query(Estimation).filter(
-        Estimation.route_id == route_id, Estimation.estimation_id == estimation_id).first()
+    estimation = session.query(Estimation).filter(Estimation.estimation_id == estimation_id).first()
     not_found_error(estimation, "Estimation")
     session.delete(estimation)
     session.commit()

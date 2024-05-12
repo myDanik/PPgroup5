@@ -52,7 +52,6 @@ for i in range(1, 50):
     estimation = Estimation(
         route_id=random.randint(max_route_id, max_route_id + i),
         estimation_value=random.randint(0, 5),
-        user_id=random.randint(max_user_id, max_user_id + i),
         estimator_id=random.randint(max_user_id, max_user_id + i),
         datetime=fake.date_time()
     )

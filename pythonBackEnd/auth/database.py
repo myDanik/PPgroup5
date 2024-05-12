@@ -62,7 +62,6 @@ class Estimation(Base):
     estimation_id = Column(Integer, primary_key=True, nullable=False, autoincrement=True)
     route_id = Column(Integer, ForeignKey('routes.route_id'), nullable=False)
     estimation_value = Column(Float, nullable=False)
-    user_id = Column(Integer, nullable=False)
     estimator_id = Column(Integer, ForeignKey('users.id'), nullable=False)
     datetime = Column(DateTime, nullable=False)
     comment = Column(String)
