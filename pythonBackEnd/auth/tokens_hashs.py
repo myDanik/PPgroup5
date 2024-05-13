@@ -61,5 +61,5 @@ def token_user(token):
     return None
 
 
-def authenticate_user(entry_password, hashed_password, salt):
+def authenticated_user(entry_password, hashed_password, salt):
     return hash_password(entry_password, salt) == hashed_password

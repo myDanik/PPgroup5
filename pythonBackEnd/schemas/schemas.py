@@ -1,4 +1,4 @@
-from pydantic import BaseModel, validator
+from pydantic import BaseModel, validator, EmailStr
 from typing import List
 from fastapi import HTTPException
 
@@ -31,5 +31,3 @@ def not_found_error(arg, name):
             "data": None,
             "details": f"{name} not found"
         })
-
-
