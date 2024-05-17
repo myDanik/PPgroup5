@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, Integer, String, Float, ForeignKey, DateTime, Boolean
+from sqlalchemy import create_engine, Column, Integer, String, Float, ForeignKey, DateTime, Boolean, JSON, ARRAY
 from sqlalchemy.orm import declarative_base, relationship, sessionmaker
 from PPgroup5.pythonBackEnd.pg import url
 
@@ -27,6 +27,7 @@ class User(Base):
     location = Column(String)
     # True = male, False = female
     sex = Column(Boolean)
+    favorite_routes = Column(ARRAY(Integer), default=[])
     hashed_password = Column(String, nullable=False)
     salt_hashed_password = Column(String, nullable=False)
     token_mobile = Column(String, nullable=False)
@@ -38,7 +39,10 @@ class Route(Base):
     route_id = Column(Integer, primary_key=True, unique=True, nullable=False, autoincrement=True)
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
     distance = Column(Float)
-    travel_time = Column(Integer)
+    # in seconds
+    users_travel_time = Column(Integer)
+    avg_travel_time_on_foot = Column(Integer)
+    avg_travel_velo_time = Column(Integer)
     comment = Column(String)
     operation_time = Column(DateTime)
     user = relationship("User", back_populates="routes")
@@ -48,11 +52,13 @@ class Route(Base):
 
 class Coordinate(Base):
     __tablename__ = 'coordinates'
+    cord_id = Column(Integer, nullable=False, primary_key=True, autoincrement=True)
     route_id = Column(Integer, ForeignKey('routes.route_id'), nullable=False)
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
     latitude = Column(Float, nullable=False)
     longitude = Column(Float, nullable=False)
-    cord_id = Column(Integer, nullable=False, primary_key=True, autoincrement=True)
+    order = Column(Integer, nullable=True)
+    locname = Column(String)
     operation_time = Column(DateTime, nullable=False)
     routes = relationship("Route", back_populates="coordinates")
 
@@ -61,11 +67,13 @@ class Estimation(Base):
     __tablename__ = 'estimations'
     estimation_id = Column(Integer, primary_key=True, nullable=False, autoincrement=True)
     route_id = Column(Integer, ForeignKey('routes.route_id'), nullable=False)
-    estimation_value = Column(Float, nullable=False)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    estimation_value = Column(Integer, nullable=False)
     estimator_id = Column(Integer, ForeignKey('users.id'), nullable=False)
     datetime = Column(DateTime, nullable=False)
     comment = Column(String)
     route = relationship("Route", back_populates="estimations")
 
-
+# Base.metadata.drop_all(engine)
 Base.metadata.create_all(engine)
+

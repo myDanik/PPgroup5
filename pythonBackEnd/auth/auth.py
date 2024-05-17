@@ -1,12 +1,10 @@
-from datetime import timedelta
 from fastapi import HTTPException, Depends, APIRouter
 
-from PPgroup5.pythonBackEnd.auth.database import User, get_db, Session
+from PPgroup5.pythonBackEnd.database.database import User, get_db, Session
 from PPgroup5.pythonBackEnd.auth.models import UserLogin, UserSignUp
 from PPgroup5.pythonBackEnd.auth.schemas import is_login, error_login_email_userexists, \
     error_login_telephone_userexists, error_login_udentified, nothing
-from PPgroup5.pythonBackEnd.auth.tokens_hashs import verify_token, authenticated_user, create_token, token_user, \
-    generate_token, creating_hash_salt
+from PPgroup5.pythonBackEnd.auth.tokens_hashs import authenticated_user, generate_token, creating_hash_salt
 from PPgroup5.pythonBackEnd.models.models import MyUserOut
 
 router = APIRouter(
@@ -41,7 +39,8 @@ def create_user(user_data: UserSignUp, session: Session = Depends(get_db)):
                     patronymic=user.patronymic,
                     location=user.location,
                     sex=user.sex,
-                    token_mobile=user.token_mobile
+                    token_mobile=user.token_mobile,
+                    favorite_routes=user.favorite_routes
                 )
             },
             "details": None
@@ -64,7 +63,8 @@ def login(login_user: UserLogin, session: Session = Depends(get_db)):
                             patronymic=user.patronymic,
                             location=user.location,
                             sex=user.sex,
-                            token_mobile=user.token_mobile
+                            token_mobile=user.token_mobile,
+                            favorite_routes=user.favorite_routes
                         )
                     },
                     "details": None
@@ -75,20 +75,3 @@ def login(login_user: UserLogin, session: Session = Depends(get_db)):
         "data": None,
         "details": "Incorrect login or password"
     })
-
-
-# @router.post("/logout")
-# def logout(token: str):
-#     if verify_token(token):
-#         return {"status": "success",
-#                 "data": {
-#                     "entry_token": None,
-#                 },
-#                 "details": "Token was verified"
-#                 }
-#     return {"status": "success",
-#             "data": {
-#                 "entry_token": None,
-#             },
-#             "details": "Token was not verified"
-#             }

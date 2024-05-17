@@ -5,7 +5,7 @@ import jwt
 import os
 from datetime import datetime, timedelta
 from PPgroup5.pythonBackEnd.pg import SECRET_KEY
-from PPgroup5.pythonBackEnd.auth.database import User, session
+from PPgroup5.pythonBackEnd.database.database import User, session
 
 
 def generate_token(length=10):

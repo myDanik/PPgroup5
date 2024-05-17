@@ -1,19 +1,18 @@
 import datetime
-from geopy.distance import great_circle as GC
-from geopy.geocoders import Nominatim
-from fastapi import FastAPI, Depends
+from random import shuffle
+from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy import func
 from fastapi.middleware.cors import CORSMiddleware
 from PPgroup5.pythonBackEnd.auth.auth import router
-from PPgroup5.pythonBackEnd.auth.schemas import is_valid_email
-from PPgroup5.pythonBackEnd.auth.tokens_hashs import creating_hash_salt
-from PPgroup5.pythonBackEnd.models.models import MyUserIn, Coordinate_get, OtherUserOut, MyUserOut, \
-    RouteGet, EstimationGet
-from PPgroup5.pythonBackEnd.auth.database import User, Route, Coordinate, Estimation, get_db, Session
+from PPgroup5.pythonBackEnd.current_user.me import profile
+from PPgroup5.pythonBackEnd.models.models import OtherUserOut, MyUserOut, EstimationGet
+from PPgroup5.pythonBackEnd.database.database import User, Route, Coordinate, Estimation, get_db, Session
 from PPgroup5.pythonBackEnd.schemas.schemas import has_not_permission_error, not_found_error
+
 
 app = FastAPI(title='Veloapp')
 app.include_router(router)
+app.include_router(profile)
 
 origins = [
     "http://localhost.tiangolo.com",
@@ -30,55 +29,27 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 @app.get("/")
-def get_all(session: Session = Depends(get_db)):
-    # получить последние роуты из ДБ и их среднюю оценку
-    try:
-        routes = session.query(Route).filter(Route.user_id != 0).all()[-10:]
-    except:
-        routes = session.query(Route).filter(Route.user_id != 0).all()
+def get_routes(page: int = 1, session: Session = Depends(get_db)):
+    # получить случайные роуты из БД и их среднюю оценку
+    # добавить pages
+    routes = session.query(Route).filter(Route.user_id != 0).all()
+    shuffle(routes)
+    random_routes = sorted(routes[-15:], key=lambda x: x.route_id)
     avg_estimations = dict()
-    for route in routes:
+    for route in random_routes:
         estimations = session.query(Estimation).filter(Estimation.route_id == route.route_id).all()
         if estimations:
             len_estimations = len(estimations)
             average_value = sum([estimation.estimation_value for estimation in estimations]) / len_estimations
             avg_estimations[str(route.route_id)] = average_value
-            break
-        avg_estimations[str(route.route_id)] = None
+        else:
+            avg_estimations[str(route.route_id)] = None
     return {"status": "success",
             "data": {
-                "routes": routes,
+                "routes": random_routes,
                 "avg_estimations": avg_estimations
-            },
-            "details": None
-            }
-
-
-@app.get("/users/me")
-def get_user_by_id(user_id: int, session: Session = Depends(get_db)):
-    # мой профиль
-    user = session.query(User).filter(User.id == user_id).first()
-    routes = session.query(Route).filter(Route.user_id == user_id).all()
-    coordinates = session.query(Coordinate).filter(Coordinate.user_id == user_id).all()
-    estimations = session.query(Estimation).filter(Estimation.estimator_id == user_id).all()
-    not_found_error(user, "User")
-    return {"status": "success",
-            "data": {
-                "user": MyUserOut(
-                    id=user_id,
-                    name=user.name,
-                    email=user.email,
-                    telephone_number=user.telephone_number,
-                    surname=user.surname,
-                    patronymic=user.patronymic,
-                    location=user.location,
-                    sex=user.sex,
-                    token_mobile=user.token_mobile
-                ),
-                "routes": routes,
-                "coordinates": coordinates,
-                "estimations": estimations
             },
             "details": None
             }
@@ -88,10 +59,10 @@ def get_user_by_id(user_id: int, session: Session = Depends(get_db)):
 def get_user_by_id(user_id: int, session: Session = Depends(get_db)):
     # профиль другого пользователя
     user = session.query(User).filter(User.id == user_id).first()
+    not_found_error(user, "User")
     routes = session.query(Route).filter(Route.user_id == user_id).all()
     coordinates = session.query(Coordinate).filter(Coordinate.user_id == user_id).all()
     estimations = session.query(Estimation).filter(Estimation.estimator_id == user_id).all()
-    not_found_error(user, "User")
     return {"status": "success",
             "data": {
                 "user": OtherUserOut(
@@ -105,55 +76,57 @@ def get_user_by_id(user_id: int, session: Session = Depends(get_db)):
                 "routes": routes,
                 "coordinates": coordinates,
                 "estimations": estimations
-
-            },
+                },
             "details": None
             }
 
 
-@app.put("/users/me/change")
-def update_user(user_id: int, user_data: MyUserIn, permission: bool = False, session: Session = Depends(get_db)):
-    has_not_permission_error(permission)
+@app.get("/route/{route_id}")
+def get_route(route_id: int, user_id: int = None, session: Session = Depends(get_db)):
+    route = session.query(Route).filter(Route.route_id == route_id).first()
+    not_found_error(route, "Route")
+    coordinates = session.query(Coordinate).filter(Coordinate.route_id == route_id).all()
+    not_found_error(coordinates, "coordinates")
+    coordinates.sort(key=lambda x: x.order)
+    is_favorite_route = None
+    user = session.query(User).filter(User.id == user_id).first()
+    if user:
+        is_favorite_route = route_id in user.favorite_routes
+    return {
+        "status": "success",
+        "data": {"route": route,
+                 "coordinates": coordinates,
+                 "is_favorite_route": is_favorite_route
+                 },
+        "details": None
+    }
+
+
+# @app.post("/route/{route_id}")
+# def add_route_to_favorite(route_id: int, user_id: int, session: Session = Depends(get_db)):
+#     user = session.query(User).filter(User.id == user_id).first()
+#     not_found_error(user, "User")
+#     route = session.query(Route).filter(Route.route_id == route_id).first()
+#     not_found_error(route, "Route")
+#     if route_id not in user.favorite_routes:
+#         print("not in")
+#         user.favorite_routes.append(route_id)
+#         session.commit()
+#     return {
+#         "status": "success",
+#         "data": None,
+#         "details": None
+#     }
+@app.post("/route/{route_id}")
+def add_route_to_favorite(route_id: int, user_id: int, session: Session = Depends(get_db)):
     user = session.query(User).filter(User.id == user_id).first()
     not_found_error(user, "User")
-    generated_salt, hashed_password = creating_hash_salt(user_data.password)
-    if not is_valid_email(user_data.email):
-        user_data.email = None
-    user_data_dict = user_data.dict()
-    del user_data_dict["password"]
-    user_data_dict["hashed_password"] = hashed_password
-    user_data_dict["salt_hashed_password"] = generated_salt
-    for attr, value in user_data_dict.items():
-        setattr(user, attr, value)
-    session.commit()
-    return {"status": "success",
-            "data": MyUserOut(
-                id=user_id,
-                name=user.name,
-                email=user.email,
-                telephone_number=user.telephone_number,
-                surname=user.surname,
-                patronymic=user.patronymic,
-                location=user.location,
-                sex=user.sex,
-                token_mobile=user.token_mobile
-            ),
-            "details": None
-            }
+    route = session.query(Route).filter(Route.route_id == route_id).first()
+    not_found_error(route, "Route")
 
-
-@app.delete("/users/me/change")
-def delete_user(user_id: int, permission: bool = False, session: Session = Depends(get_db)):
-    has_not_permission_error(permission)
-    user = session.query(User).filter(User.id == user_id).first()
-    not_found_error(user, "User")
-
-    session.query(Estimation).filter(Estimation.estimator_id == user_id).update({'estimator_id': 0})
-    session.query(Estimation).filter(Estimation.user_id == user_id).update({'user_id': 0})
-    session.query(Coordinate).filter(Coordinate.user_id == user_id).update({'user_id': 0})
-    session.query(Route).filter(Route.user_id == user_id).update({'user_id': 0})
-    session.delete(user)
-    session.commit()
+    if route_id not in user.favorite_routes:
+        user.favorite_routes = user.favorite_routes + [route_id]
+        session.commit()
     return {
         "status": "success",
         "data": None,
@@ -161,63 +134,16 @@ def delete_user(user_id: int, permission: bool = False, session: Session = Depen
     }
 
 
-@app.get("/route/{route_id}")
-def get_route(route_id: int, session: Session = Depends(get_db)):
-    route = session.query(Route).filter(Route.route_id == route_id).first()
-    not_found_error(route, "Route")
-    coordinates = session.query(Coordinate).filter(Coordinate.route_id == route_id).all()
-    not_found_error(coordinates, "coordinates")
-    geoLoc = Nominatim(user_agent="GetLoc")
-    locnames = []
-    for coord in coordinates:
-        latitude_str = str(coord.latitude)
-        longitude_str = str(coord.longitude)
-        locname = geoLoc.reverse(f"{latitude_str}, {longitude_str}")
-        locnames.append(str(locname) if locname else "")
-    return {
-        "status": "success",
-        "data": {"route": route,
-                 "coordinates": coordinates,
-                 "locnames": locnames},
-        "details": None
-    }
-
-
-@app.put("/route/{route_id}")
-def update_route(user_id: int, route_id: int, route_data: RouteGet, permission: bool = False,
-                 session: Session = Depends(get_db)):
-    has_not_permission_error(permission)
-    route = session.query(Route).filter(Route.route_id == route_id).first()
-    not_found_error(route, "Route")
-
-    route.distance = route_data.distance
-    route.travel_time = route_data.travel_time
-    route.comment = route_data.comment
-    route.operation_time = datetime.datetime.now()
-    session.commit()
-    return {
-        "status": "success",
-        "data": {
-            "route_id": route.route_id,
-            "user_id": route.user_id,
-            "distance": route.distance,
-            "travel_time": route.travel_time,
-            "comment": route.comment,
-            "operation_time": route.operation_time
-        },
-        "details": None
-    }
-
-
 @app.delete("/route/{route_id}")
-def delete_route(route_id: int, permission: bool = False, session: Session = Depends(get_db)):
-    has_not_permission_error(permission)
+def remove_favorite_route(user_id: int, route_id: int, session: Session = Depends(get_db)):
+    user = session.query(User).filter(User.id == user_id).first()
+    not_found_error(user, "User")
     route = session.query(Route).filter(Route.route_id == route_id).first()
     not_found_error(route, "Route")
-    session.query(Estimation).filter(Estimation.route_id == route_id).delete()
-    session.query(Coordinate).filter(Coordinate.route_id == route_id).delete()
-    session.delete(route)
-    session.commit()
+
+    if route_id in user.favorite_routes:
+        user.favorite_routes.remove(route_id)
+        session.commit()
     return {
         "status": "success",
         "data": None,
@@ -250,94 +176,6 @@ def check_token(token_mobile: str, session: Session = Depends(get_db)):
             ),
             "details": None
             }
-
-
-# coordinates
-@app.get("/coordinates")
-def get_coordinates_by_cord_id(user_id: int, permission: bool = False, session: Session = Depends(get_db)):
-    has_not_permission_error(permission)
-    coordinates = session.query(Coordinate).filter(Coordinate.user_id == user_id).all()
-    not_found_error(coordinates, "Coordinates")
-    return {
-        "status": "success",
-        "data": {
-            "coordinates": coordinates
-        },
-        "details": None
-    }
-
-
-@app.post("/coordinate/")
-def create_coordinate_point(user_id: int, route_id: int, coordinate_data: Coordinate_get, session: Session = Depends(get_db)):
-    # координаты привязаны к конкретным маршрутам, не создастся без маршрута
-    user = session.query(User).filter(User.id == user_id).first()
-    not_found_error(user, "User")
-    route = session.query(Route).filter(Route.route_id == route_id).first()
-    not_found_error(route, "Route")
-    new_coordinate = Coordinate(
-        user_id=user_id,
-        route_id=route_id,
-        latitude=coordinate_data.latitude,
-        longitude=coordinate_data.longitude,
-        operation_time=datetime.datetime.now()
-    )
-    session.add(new_coordinate)
-    session.commit()
-    session.refresh(new_coordinate)
-    return {
-        "status": "success",
-        "data": {
-            "route_id": new_coordinate.route_id,
-            "user_id": new_coordinate.user_id,
-            "latitude": new_coordinate.latitude,
-            "longitude": new_coordinate.longitude,
-            "cord_id": new_coordinate.cord_id,
-            "operation_time": new_coordinate.operation_time
-        },
-        "details": None
-    }
-
-
-@app.put("/coordinate/{coordinate.cord_id")
-def update_coordinate_point(user_id: int, cord_id: int, coordinate_data: Coordinate_get, permission: bool = False,
-                            session: Session = Depends(get_db)):
-    has_not_permission_error(permission)
-    user = session.query(User).filter(User.id == user_id).first()
-    not_found_error(user, "User")
-    coordinate = session.query(Coordinate).filter(Coordinate.cord_id == cord_id).first()
-    not_found_error(coordinate, "Coordinate")
-    coordinate.latitude = coordinate_data.latitude
-    coordinate.longitude = coordinate_data.longitude
-    coordinate.operation_time = datetime.datetime.now()
-    session.commit()
-    return {
-        "status": "success",
-        "data": {
-            "route_id": coordinate.route_id,
-            "user_id": coordinate.user_id,
-            "latitude": coordinate.latitude,
-            "longitude": coordinate.longitude,
-            "cord_id": coordinate.cord_id,
-            "operation_time": coordinate.operation_time
-        },
-        "details": None
-    }
-
-
-@app.delete("/coordinate/{cord_id}")
-def delete_coordinate_point(user_id: int, cord_id: int, permission: bool = False, session: Session = Depends(get_db)):
-    has_not_permission_error(permission)
-    user = session.query(User).filter(User.id == user_id).first()
-    not_found_error(user, "User")
-    coordinate = session.query(Coordinate).filter(Coordinate.cord_id == cord_id).first()
-    not_found_error(coordinate, "Coordinate")
-    session.delete(coordinate)
-    session.commit()
-    return {
-        "status": "success",
-        "data": None,
-        "details": None
-    }
 
 
 # estimations
@@ -419,3 +257,5 @@ def delete_estimation(estimation_id: int, permission: bool = False, session: Ses
         "data": None,
         "details": None
     }
+
+#по токену принять координаты в массиве вида [[longitude, latitude], [longitude, latitude],[longitude, latitude]]

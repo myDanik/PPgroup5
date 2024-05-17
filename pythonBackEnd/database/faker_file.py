@@ -1,7 +1,7 @@
 from faker import Faker
 from sqlalchemy import func
 
-from PPgroup5.pythonBackEnd.auth.database import User, Route, Coordinate, Estimation, session
+from PPgroup5.pythonBackEnd.database.database import User, Route, Coordinate, Estimation, session
 import random
 
 
@@ -46,14 +46,15 @@ for i in range(1, 50):
     session.add(user)
     route = Route(
         user_id=random.randint(max_user_id, max_user_id + i),
-        distance=random.uniform(1, 100)
+        distance=random.uniform(1, 100),
     )
     session.add(route)
     estimation = Estimation(
         route_id=random.randint(max_route_id, max_route_id + i),
         estimation_value=random.randint(0, 5),
         estimator_id=random.randint(max_user_id, max_user_id + i),
-        datetime=fake.date_time()
+        datetime=fake.date_time(),
+        user_id=random.randint(max_user_id, max_user_id + i)
     )
     session.add(estimation)
 for u in range(1, 50):
@@ -65,7 +66,8 @@ for u in range(1, 50):
             longitude=random.uniform(-180, 180),
             operation_time=fake.date_time(),
             route_id=route_id,
-            user_id=user_id
+            user_id=user_id,
+            order=y + 1
         )
         session.add(coordinate)
 session.commit()

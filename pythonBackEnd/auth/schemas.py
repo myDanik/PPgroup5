@@ -1,8 +1,8 @@
 import re
 from fastapi import HTTPException
-from pydantic import EmailStr
+from geopy import Nominatim
 
-from PPgroup5.pythonBackEnd.auth.database import session, User
+from PPgroup5.pythonBackEnd.database.database import session, User
 
 
 def is_telephone_number(telephone: str):
@@ -64,7 +64,7 @@ def is_valid_email(email):
     return True
 
 
-def is_login(login, func_login_telephone, func_login_email, func_login_udentified):
+def is_login(login, func_login_telephone=nothing(), func_login_email=nothing(), func_login_udentified=nothing()):
     if is_telephone_number(login)["result"]:
         user = session.query(User).filter(User.telephone_number == login).first()
         if user:
@@ -81,3 +81,12 @@ def is_login(login, func_login_telephone, func_login_email, func_login_udentifie
         else:
             func_login_udentified()
     return telephone_number, email, user
+
+
+def get_lock_by_cords(latitude, longitude):
+    try:
+        geoLoc = Nominatim(user_agent="GetLoc")
+        locname = geoLoc.reverse(f"{str(latitude)}, {str(longitude)}")
+        return locname
+    except:
+        return None

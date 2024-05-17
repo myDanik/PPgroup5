@@ -1,5 +1,4 @@
-from typing import Optional, Union
-
+from typing import Optional, Union, List
 from pydantic import BaseModel, Field
 
 
@@ -43,13 +42,23 @@ class OtherUserOut(BaseModel):
 
 
 class RouteGet(BaseModel):
-    distance: float
-    travel_time: int
+    users_travel_time: int
     comment: str
 
-class Coordinate_get(BaseModel):
+
+class CoordinateGet(BaseModel):
     latitude: float = Field(nullable=False, ge=-90.0, le=90.0)
     longitude: float = Field(nullable=False, ge=-180.0, le=180.0)
+
+
+class CoordinatesInfoOut(BaseModel):
+    cord_id: int
+    route_id: int
+    user_id: int
+    latitude: float
+    longitude: float
+    order: int
+    locname: str
 
 
 class EstimationGet(BaseModel):
