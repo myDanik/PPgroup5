@@ -1,11 +1,22 @@
 import re
 from fastapi import HTTPException
-from geopy import Nominatim
 
 from PPgroup5.pythonBackEnd.database.database import session, User
 
 
 def is_telephone_number(telephone: str):
+    """
+    Проверяет, является ли строка телефонным номером.
+
+    Parameters:
+    - telephone (str): Строка для проверки.
+
+    Returns:
+    - dict: Результат проверки со следующими ключами:
+      - "result" (bool): Результат проверки (True - номер телефона, False - не номер телефона).
+      - "telephone" (str): Проверенная строка.
+      - "details" (str or None): Дополнительные детали о неудачной проверке (если есть).
+    """
     if len(telephone) != 11:
         if not (len(telephone) == 12 and telephone.startswith("+")):
             return {"result": False,
@@ -21,7 +32,10 @@ def is_telephone_number(telephone: str):
             "details": None}
 
 
-def error_login_telephone_userexists():
+def error_telephone_userexists():
+    """
+    Вызывает HTTPException со статусом 409 и сообщением об ошибке для существующего телефонного номера.
+    """
     raise HTTPException(status_code=409, detail={
         "status": "error",
         "data": None,
@@ -29,7 +43,10 @@ def error_login_telephone_userexists():
     })
 
 
-def error_login_email_userexists():
+def error_email_userexists():
+    """
+    Вызывает HTTPException со статусом 409 и сообщением об ошибке для существующего адреса эл. почты.
+    """
     raise HTTPException(status_code=409, detail={
         "status": "error",
         "data": None,
@@ -37,15 +54,10 @@ def error_login_email_userexists():
     })
 
 
-def unidentified_login():
-    raise HTTPException(status_code=409, detail={
-        "status": "error",
-        "data": None,
-        "details": "unidentified login"
-    })
-
-
 def error_login_udentified():
+    """
+    Вызывает HTTPException со статусом 409 и сообщением об ошибке для нераспознанного логина.
+    """
     raise HTTPException(status_code=409, detail={
         "status": "error",
         "data": None,
@@ -54,10 +66,22 @@ def error_login_udentified():
 
 
 def nothing():
+    """
+    Функция-заглушка, ничего не делает.
+    """
     pass
 
 
 def is_valid_email(email):
+    """
+    Проверяет, является ли строка email адресом.
+
+    Parameters:
+    - email (str): Строка для проверки.
+
+    Returns:
+    - bool: True, если строка является валидным email адресом, иначе False.
+    """
     pattern = r"\"?([-a-zA-Z0-9.`?{}]+@\w+\.\w+)\"?"
     if not re.match(pattern, email):
         return False
@@ -65,6 +89,18 @@ def is_valid_email(email):
 
 
 def is_login(login, func_login_telephone=nothing(), func_login_email=nothing(), func_login_udentified=nothing()):
+    """
+    Проверяет логин пользователя (телефонный номер или email) и вызывает соответствующую функцию обработки ошибки.
+
+    Parameters:
+    - login (str): Логин пользователя (телефонный номер или email).
+    - func_login_telephone (function): Функция для обработки ошибки существующего телефонного номера.
+    - func_login_email (function): Функция для обработки ошибки существующего email.
+    - func_login_udentified (function): Функция для обработки ошибки нераспознанного логина.
+
+    Returns:
+    - tuple: Кортеж из телефонного номера, email и объекта пользователя (если найден).
+    """
     if is_telephone_number(login)["result"]:
         user = session.query(User).filter(User.telephone_number == login).first()
         if user:
@@ -81,12 +117,3 @@ def is_login(login, func_login_telephone=nothing(), func_login_email=nothing(), 
         else:
             func_login_udentified()
     return telephone_number, email, user
-
-
-def get_lock_by_cords(latitude, longitude):
-    try:
-        geoLoc = Nominatim(user_agent="GetLoc")
-        locname = geoLoc.reverse(f"{str(latitude)}, {str(longitude)}")
-        return locname
-    except:
-        return None

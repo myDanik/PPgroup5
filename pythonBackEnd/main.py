@@ -1,14 +1,14 @@
 import datetime
-from random import shuffle
 from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy import func
+from geopy.distance import great_circle as GC
+
 from fastapi.middleware.cors import CORSMiddleware
 from PPgroup5.pythonBackEnd.auth.auth import router
 from PPgroup5.pythonBackEnd.current_user.me import profile
-from PPgroup5.pythonBackEnd.models.models import OtherUserOut, MyUserOut, EstimationGet
+from PPgroup5.pythonBackEnd.models.models import OtherUserOut, MyUserOut, EstimationGet, RouteOut
 from PPgroup5.pythonBackEnd.database.database import User, Route, Coordinate, Estimation, get_db, Session
-from PPgroup5.pythonBackEnd.schemas.schemas import has_not_permission_error, not_found_error
-
+from PPgroup5.pythonBackEnd.schemas.schemas import not_found_error, Route_Data, user_search, route_search, time_redakt
 
 app = FastAPI(title='Veloapp')
 app.include_router(router)
@@ -31,26 +31,39 @@ app.add_middleware(
 
 
 @app.get("/")
-def get_routes(page: int = 1, session: Session = Depends(get_db)):
-    # получить случайные роуты из БД и их среднюю оценку
+def get_routes(session: Session = Depends(get_db)):
     # добавить pages
     routes = session.query(Route).filter(Route.user_id != 0).all()
-    shuffle(routes)
-    random_routes = sorted(routes[-15:], key=lambda x: x.route_id)
-    avg_estimations = dict()
-    for route in random_routes:
+    routes = sorted(routes[-15:], key=lambda x: x.route_id)
+    routes_out = []
+    id = 1
+    for route in routes:
         estimations = session.query(Estimation).filter(Estimation.route_id == route.route_id).all()
         if estimations:
             len_estimations = len(estimations)
-            average_value = sum([estimation.estimation_value for estimation in estimations]) / len_estimations
-            avg_estimations[str(route.route_id)] = average_value
+            avg_estimation = round(sum([estimation.estimation_value for estimation in estimations]) / len_estimations, 2)
         else:
-            avg_estimations[str(route.route_id)] = None
+            avg_estimation = None
+        user = session.query(User).filter(User.id == route.user_id).first()
+        user_name = user.name
+
+        routes_out.append(
+                RouteOut(
+                    id=id,
+                    users_travel_time=time_redakt(route.users_travel_time),
+                    comment=route.comment,
+                    route_id=route.route_id,
+                    user_id=route.user_id,
+                    distance=route.user_id,
+                    avg_travel_time_on_foot=route.avg_travel_time_on_foot,
+                    avg_travel_velo_time=route.avg_travel_velo_time,
+                    avg_estimation=avg_estimation,
+                    user_name=user_name
+                        )
+                    )
+        id += 1
     return {"status": "success",
-            "data": {
-                "routes": random_routes,
-                "avg_estimations": avg_estimations
-            },
+            "data": routes_out,
             "details": None
             }
 
@@ -58,8 +71,7 @@ def get_routes(page: int = 1, session: Session = Depends(get_db)):
 @app.get("/users/{user_id}")
 def get_user_by_id(user_id: int, session: Session = Depends(get_db)):
     # профиль другого пользователя
-    user = session.query(User).filter(User.id == user_id).first()
-    not_found_error(user, "User")
+    user = user_search(user_id)
     routes = session.query(Route).filter(Route.user_id == user_id).all()
     coordinates = session.query(Coordinate).filter(Coordinate.user_id == user_id).all()
     estimations = session.query(Estimation).filter(Estimation.estimator_id == user_id).all()
@@ -83,13 +95,12 @@ def get_user_by_id(user_id: int, session: Session = Depends(get_db)):
 
 @app.get("/route/{route_id}")
 def get_route(route_id: int, user_id: int = None, session: Session = Depends(get_db)):
-    route = session.query(Route).filter(Route.route_id == route_id).first()
-    not_found_error(route, "Route")
+    user = user_search(user_id)
+    route = route_search(route_id)
     coordinates = session.query(Coordinate).filter(Coordinate.route_id == route_id).all()
     not_found_error(coordinates, "coordinates")
     coordinates.sort(key=lambda x: x.order)
     is_favorite_route = None
-    user = session.query(User).filter(User.id == user_id).first()
     if user:
         is_favorite_route = route_id in user.favorite_routes
     return {
@@ -102,51 +113,21 @@ def get_route(route_id: int, user_id: int = None, session: Session = Depends(get
     }
 
 
-# @app.post("/route/{route_id}")
-# def add_route_to_favorite(route_id: int, user_id: int, session: Session = Depends(get_db)):
-#     user = session.query(User).filter(User.id == user_id).first()
-#     not_found_error(user, "User")
-#     route = session.query(Route).filter(Route.route_id == route_id).first()
-#     not_found_error(route, "Route")
-#     if route_id not in user.favorite_routes:
-#         print("not in")
-#         user.favorite_routes.append(route_id)
-#         session.commit()
-#     return {
-#         "status": "success",
-#         "data": None,
-#         "details": None
-#     }
 @app.post("/route/{route_id}")
-def add_route_to_favorite(route_id: int, user_id: int, session: Session = Depends(get_db)):
-    user = session.query(User).filter(User.id == user_id).first()
-    not_found_error(user, "User")
-    route = session.query(Route).filter(Route.route_id == route_id).first()
-    not_found_error(route, "Route")
-
-    if route_id not in user.favorite_routes:
+def add_remove_route_to_favorite(route_id: int, user_id: int, session: Session = Depends(get_db)):
+    user = user_search(user_id)
+    route_search(route_id)
+    if user.favorite_routes is None:
+        user.favorite_routes = [route_id]
+    elif route_id not in user.favorite_routes:
         user.favorite_routes = user.favorite_routes + [route_id]
-        session.commit()
+    else:
+        user.favorite_routes = list(filter(lambda x: x != route_id, user.favorite_routes))
+    session.commit()
+    session.refresh(user)
     return {
         "status": "success",
-        "data": None,
-        "details": None
-    }
-
-
-@app.delete("/route/{route_id}")
-def remove_favorite_route(user_id: int, route_id: int, session: Session = Depends(get_db)):
-    user = session.query(User).filter(User.id == user_id).first()
-    not_found_error(user, "User")
-    route = session.query(Route).filter(Route.route_id == route_id).first()
-    not_found_error(route, "Route")
-
-    if route_id in user.favorite_routes:
-        user.favorite_routes.remove(route_id)
-        session.commit()
-    return {
-        "status": "success",
-        "data": None,
+        "data": {"user_favorite_routes": user.favorite_routes},
         "details": None
     }
 
@@ -226,9 +207,7 @@ def get_estimation_by_route_id(user_id: int, route_id: int, session: Session = D
 
 
 @app.put("/routes/{route_id}/estimation/{estimation.estimation_id}")
-def update_estimation(estimator_id: int, route_id: int, estimation_value: float, permission: bool = False,
-                            session: Session = Depends(get_db)):
-    has_not_permission_error(permission)
+def update_estimation(estimator_id: int, route_id: int, estimation_value: float, session: Session = Depends(get_db)):
     estimation = session.query(Estimation).filter(
         Estimation.route_id == route_id, Estimation.estimator_id == estimator_id).first()
     not_found_error(estimation, "Estimation")
@@ -246,8 +225,7 @@ def update_estimation(estimator_id: int, route_id: int, estimation_value: float,
 
 
 @app.delete("/routes/{route_id}/estimation/{estimation.estimation_id}")
-def delete_estimation(estimation_id: int, permission: bool = False, session: Session = Depends(get_db)):
-    has_not_permission_error(permission)
+def delete_estimation(estimation_id: int, session: Session = Depends(get_db)):
     estimation = session.query(Estimation).filter(Estimation.estimation_id == estimation_id).first()
     not_found_error(estimation, "Estimation")
     session.delete(estimation)
@@ -258,4 +236,63 @@ def delete_estimation(estimation_id: int, permission: bool = False, session: Ses
         "details": None
     }
 
-#по токену принять координаты в массиве вида [[longitude, latitude], [longitude, latitude],[longitude, latitude]]
+
+@app.post("/route/")
+def post_route_arrow(route_info: Route_Data, session: Session = Depends(get_db)):
+    user = session.query(User).filter(User.token_mobile == route_info.token_mobile).first()
+    not_found_error(user, "User")
+
+    dist = 0
+    for i in range(len(route_info.latitude_longitude)-1):
+        dist += GC((route_info.latitude_longitude[i][0], route_info.latitude_longitude[i][1]), (route_info.latitude_longitude[i+1][0], route_info.latitude_longitude[i+1][1])).km
+    new_route = Route(user_id=user.id, distance=dist, travel_time=route_info.travel_time, operation_time=datetime.datetime.now())
+    session.add(new_route)
+    session.commit()
+    session.refresh(new_route)
+    for cord in range(len(route_info.latitude_longitude)):
+        new_coordinate = Coordinate(route_id=new_route.route_id,
+                                    user_id=user.id,
+                                    latitude=route_info.latitude_longitude[cord][0],
+                                    longitude=route_info.latitude_longitude[cord][1],
+                                    operation_time=datetime.datetime.now())
+        session.add(new_coordinate)
+    session.commit()
+    session.refresh(new_route)
+    return {
+        "status": "success",
+        "data": {"route": new_route},
+        "details": None
+    }
+
+
+@app.get("/route/{route_id}/distance")
+def get_distance(route_id: int, session: Session = Depends(get_db)):
+    route_search(route_id)
+    coordinates = sorted(session.query(Coordinate).filter(Coordinate.route_id == route_id).all(), key=lambda x: x.cord_id)
+    coordinates = list(map(lambda x: (x.latitude, x.longitude), coordinates))
+    if len(coordinates) < 2:
+        raise HTTPException(status_code=400, detail={
+            "status": "error",
+            "data": None,
+            "details": "less than 2 coordinates"
+        })
+    distance = 0
+    for index in range(len(coordinates) - 1):
+        distance += GC(coordinates[index], coordinates[index + 1]).km
+    return {
+        "status": "success",
+        "data": {"distance": distance},
+        "details": None
+    }
+
+
+@app.post("/route/{route_id}/distance")
+def post_distance(route_id: int, distance: float, session: Session = Depends(get_db)):
+    route = session.query(Route).filter(Route.route_id == route_id).first()
+    route.distance = distance
+    session.commit()
+    return {
+        "status": "success",
+        "data": {"distance": distance},
+        "details": None
+    }
