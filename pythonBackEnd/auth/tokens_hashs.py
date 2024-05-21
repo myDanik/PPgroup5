@@ -15,7 +15,7 @@ def generate_token(length=10):
     Returns:
     - str: Сгенерированный уникальный токен.
     """
-    alphabet = string.ascii_letters + string.digits
+    alphabet = string.digits
     token_mobile = ''.join(secrets.choice(alphabet) for _ in range(length))
     user = session.query(User).filter_by(token_mobile=token_mobile).first()
     if user is None:

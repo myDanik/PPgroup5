@@ -1,9 +1,9 @@
 from geopy import Nominatim
-from pydantic import BaseModel, validator, EmailStr
+from pydantic import BaseModel, validator
 from typing import List
-from fastapi import HTTPException
+from fastapi import HTTPException, Depends
 
-from PPgroup5.pythonBackEnd.database.database import User, session, Route, Coordinate
+from PPgroup5.pythonBackEnd.database.database import User, Route, Coordinate, Estimation, Session, get_db
 
 
 class Route_Data(BaseModel):
@@ -11,11 +11,11 @@ class Route_Data(BaseModel):
     Модель данных маршрута.
 
     Поля:
-    - travel_time: Время путешествия.
+    - users_travel_time: Время путешествия.
     - latitude_longitude: Список координат (широта и долгота).
     - token_mobile: Мобильный токен пользователя.
     """
-    travel_time: int
+    users_travel_time: int
     latitude_longitude: List[List[float]]
     token_mobile: str
 
@@ -58,7 +58,7 @@ def not_found_error(arg, name):
         })
 
 
-def user_search(user_id):
+def user_search(user_id, session: Session = Depends(get_db)):
     """
     Функция для поиска пользователя по ID.
 
@@ -73,7 +73,7 @@ def user_search(user_id):
     return user
 
 
-def route_search(route_id):
+def route_search(route_id, session: Session = Depends(get_db)):
     """
     Функция для поиска маршрута по ID.
 
@@ -88,7 +88,7 @@ def route_search(route_id):
     return route
 
 
-def coordinate_search(cord_id):
+def coordinate_search(cord_id, session: Session = Depends(get_db)):
     """
     Функция для поиска координаты по ID.
 
@@ -117,9 +117,9 @@ def get_lock_by_cords(latitude, longitude):
     try:
         geoLoc = Nominatim(user_agent="GetLoc")
         locname = geoLoc.reverse(f"{str(latitude)}, {str(longitude)}")
-        return locname
+        return str(locname)
     except:
-        return
+        return None
 
 
 def time_redakt(time):
@@ -132,6 +132,24 @@ def time_redakt(time):
     Возвращает:
     - Время в формате Часы:Минуты:Секунды.
     """
+    if not time:
+        return "0:00:00"
     minutes = "0" + str((time % 3600) // 60)
     seconds = "0" + str(time % 60)
     return f"{time // 3600}:{minutes[-2:]}:{seconds[-2:]}"
+
+
+def avg_estimation(route_id, session: Session = Depends(get_db)):
+    """
+    Функция для высчитывания средней оценки маршрута.
+
+    Аргументы:
+    - route_id: id маршрута.
+
+    Возвращает:
+    - среднюю оценку маршрута.
+    """
+    estimations = session.query(Estimation).filter(Estimation.route_id == route_id).all()
+    if estimations:
+        return round(sum([estimation.estimation_value for estimation in estimations]) / len(estimations), 2)
+    return None

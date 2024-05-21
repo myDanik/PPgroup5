@@ -37,7 +37,7 @@ def create_user(user_data: UserSignUp, session: Session = Depends(get_db)):
         hashed_password=hashed_password,
         token_mobile=generate_token(),
         salt_hashed_password=generated_salt,
-        authorizated_at=datetime.datetime.now()
+        authorized_time=datetime.datetime.now()
     )
     session.add(user)
     session.commit()
@@ -54,7 +54,8 @@ def create_user(user_data: UserSignUp, session: Session = Depends(get_db)):
                     sex=user.sex,
                     token_mobile=user.token_mobile,
                     favorite_routes=user.favorite_routes,
-                    birth=user.birth
+                    birth=user.birth,
+                    authorized_time=str(user.authorized_time)
                 )
             },
             "details": None
@@ -92,7 +93,8 @@ def login(login_user: UserLogin, session: Session = Depends(get_db)):
                             sex=user.sex,
                             token_mobile=user.token_mobile,
                             favorite_routes=user.favorite_routes,
-                            birth=user.birth
+                            birth=user.birth,
+                            authorized_time=str(user.authorized_time)
                         )
                     },
                     "details": None

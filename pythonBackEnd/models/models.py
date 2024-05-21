@@ -31,7 +31,6 @@ class MyUserIn(BaseModel):
     - patronymic (Optional[str]): Отчество пользователя (необязательно).
     - location (Optional[str]): Местоположение пользователя (необязательно).
     - sex (Optional[bool]): Пол пользователя (необязательно).
-    - token_mobile (str): Токен мобильного приложения.
     """
     id: Optional[int] = None
     name: Optional[str] = None
@@ -42,7 +41,6 @@ class MyUserIn(BaseModel):
     location: Optional[str] = None
     sex: Optional[str] = None
     birth: Optional[str] = None
-    token_mobile: Optional[str] = None
 
 
 class MyUserOut(BaseModel):
@@ -59,6 +57,7 @@ class MyUserOut(BaseModel):
     - location: Местоположение пользователя.
     - sex: Пол пользователя.
     - token_mobile: Мобильный токен пользователя.
+    - authorized_time: время создания аккаунта.
     """
     id: int
     name: str
@@ -70,6 +69,7 @@ class MyUserOut(BaseModel):
     sex: Optional[str] = None
     birth: Optional[str] = None
     token_mobile: Optional[str] = None
+    authorized_time: Optional[str] = None
 
 
 class OtherUserOut(BaseModel):
@@ -83,13 +83,15 @@ class OtherUserOut(BaseModel):
     - patronymic: Отчество пользователя.
     - location: Местоположение пользователя.
     - sex: Пол пользователя.
+    - authorized_time: время создания аккаунта.
     """
     id: int
     name: str
     surname: Optional[str] = None
     patronymic: Optional[str] = None
     location: Optional[str] = None
-    sex: Optional[bool] = None
+    sex: Optional[str] = None
+    authorized_time: Optional[str] = None
 
 
 class RouteGet(BaseModel):
@@ -105,23 +107,34 @@ class RouteGet(BaseModel):
 
 
 class RouteOut(BaseModel):
-    # """
-    # Модель используется для получения информации о маршруте.
-    #
-    # Поля:
-    # users_travel_time (int): Время путешествия пользователей по маршруту в секнудах.
-    # comment (str): Комментарий к маршруту.
-    # """
+    """
+    Модель исходящих данных о маршруте.
+
+    Поля:
+    - id: Идентификатор маршрута.
+    - users_travel_time: Время в пути пользователя (в секундах).
+    - comment: Комментарий к маршруту.
+    - route_id: Идентификатор маршрута.
+    - user_id: Идентификатор пользователя, создавшего маршрут.
+    - distance: Расстояние маршрута (в километрах).
+    - avg_estimation: Средняя оценка маршрута.
+    - avg_travel_time_on_foot: Среднее время путешествия пешком (в секундах).
+    - avg_travel_velo_time: Среднее время путешествия на велосипеде (в секундах).
+    - user_name: Имя пользователя, создавшего маршрут.
+    - created_time: время создания маршрута.
+    """
     id: int
-    users_travel_time: str
+    users_travel_time: Optional[str] = None
     comment: Optional[str] = None
     route_id: int
     user_id: int
     distance: Optional[float] = None
     avg_estimation: Optional[float] = None
-    avg_travel_time_on_foot: Optional[float] = None
-    avg_travel_velo_time: Optional[float] = None
-    user_name: Optional[str]
+    avg_travel_time_on_foot: Optional[int] = None
+    avg_travel_velo_time: Optional[int] = None
+    user_name: str
+    operation_time: Optional[str] = None
+    created_time: Optional[str] = None
 
 
 class CoordinateGet(BaseModel):
@@ -146,5 +159,5 @@ class EstimationGet(BaseModel):
     comment (str): Комментарий к оценке.
     """
     route_id: int
-    estimation: float = Field(le=5, ge=1)
-    comment: str
+    estimation: int = Field(le=5, ge=1)
+    comment: Optional[str] = None
