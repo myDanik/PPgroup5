@@ -133,7 +133,6 @@ class RouteOut(BaseModel):
     avg_travel_time_on_foot: Optional[int] = None
     avg_travel_velo_time: Optional[int] = None
     user_name: str
-    operation_time: Optional[str] = None
     created_time: Optional[str] = None
 
 

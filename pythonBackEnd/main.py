@@ -58,7 +58,7 @@ def get_routes(session: Session = Depends(get_db)):
                     comment=route.comment,
                     route_id=route.route_id,
                     user_id=route.user_id,
-                    distance=round(route.distance, 2) if route.distance else None,
+                    distance=round(route.distance, 2) if route.distance else 0,
                     avg_travel_time_on_foot=route.avg_travel_time_on_foot,
                     avg_travel_velo_time=route.avg_travel_velo_time,
                     avg_estimation=avg_estimation(route.route_id, session),
@@ -114,7 +114,7 @@ def get_user_by_id(user_id: int, session: Session = Depends(get_db)):
                         comment=route.comment,
                         route_id=route.route_id,
                         user_id=route.user_id,
-                        distance=round(route.distance, 2) if route.distance else None,
+                        distance=round(route.distance, 2) if route.distance else 0,
                         avg_travel_time_on_foot=route.avg_travel_time_on_foot,
                         avg_travel_velo_time=route.avg_travel_velo_time,
                         avg_estimation=avg_estimation(route.route_id, session),
@@ -165,6 +165,7 @@ def get_route(route_id: int, user_id: int = None, session: Session = Depends(get
     route = route_search(route_id, session)
     coordinates = session.query(Coordinate).filter(Coordinate.route_id == route_id).all()
     coordinates.sort(key=lambda x: x.cord_id)
+    coordinates = list(map(lambda x: (x.longitude, x.latitude), coordinates))
     is_favorite_route = None
     if user:
         is_favorite_route = route_id in user.favorite_routes
@@ -422,7 +423,6 @@ def post_route_arrow(route_info: Route_Data, session: Session = Depends(get_db))
             user_id=user.id,
             latitude=route_info.latitude_longitude[cord][0],
             longitude=route_info.latitude_longitude[cord][1],
-            locname=get_lock_by_cords(route_info.latitude_longitude[cord][0], route_info.latitude_longitude[cord][1])
         )
         session.add(new_coordinate)
     session.commit()

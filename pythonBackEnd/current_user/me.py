@@ -152,6 +152,7 @@ def update_user(user_data: MyUserIn, session: Session = Depends(get_db)):
     # #     user_data_dict["hashed_password"] = hashed_password
     # #     user_data_dict["salt_hashed_password"] = generated_salt
 
+
 @profile.delete("/profile")
 def delete_user(user_id: int, session: Session = Depends(get_db)):
     """
